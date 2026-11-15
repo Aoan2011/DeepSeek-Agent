@@ -360,6 +360,11 @@ const ConnectTab = () => {
             <span>
               {t('agentDesktopSandbox')}：<code>{desktop.info.sandbox}</code>
             </span>
+            {desktop.info.allowed?.length ? (
+              <span>
+                {t('agentDesktopAllowed')}：<code>{desktop.info.allowed.join(' · ')}</code>
+              </span>
+            ) : null}
             <span>{t('agentDesktopTools', { count: desktop.toolCount })}</span>
           </div>
         ) : null}

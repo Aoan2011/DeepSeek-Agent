@@ -44,6 +44,7 @@ http://localhost:8090/?desktop=ws%3A//127.0.0.1%3A8765&token=<令牌>
 | `--host` | 监听地址，默认 `127.0.0.1`，不要随意改成 `0.0.0.0` |
 | `--port` | WebSocket 端口，默认 `8765` |
 | `--sandbox` | 工作目录，所有文件操作限制在此，默认 `~/AgentWorkspace` |
+| `--allow-path` | 额外放行的目录，可重复；默认已放行 `~/.skills`（用 `AGENTDESK_SKILLS` 可改路径） |
 | `--token` | 固定令牌；默认生成并保存到 `~/.agentdesk/config.json` |
 | `--new-token` | 重新生成令牌 |
 | `--no-shell` | 禁用 `desk_shell_exec` 与 `desk_python_exec` |
@@ -54,6 +55,10 @@ http://localhost:8090/?desktop=ws%3A//127.0.0.1%3A8765&token=<令牌>
 | `--no-tui` | 不渲染面板，只输出启动信息 |
 
 ## 工具
+
+沙箱以外的目录默认只有 `~/.skills` 可读写：技能说明（`SKILL.md`）和随附脚本放在这里，
+Agent 用 `desk_fs_read`/`desk_fs_list` 传绝对路径或 `~/.skills/...` 就能直接读取，
+其余路径仍然越界报错。需要额外放行别的目录时用 `--allow-path` 追加。
 
 | 名称 | 说明 |
 | --- | --- |

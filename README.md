@@ -23,7 +23,12 @@
 | 工作区 | 内置演示仓库或本地文件夹，文件树按目录列出改动，点开就是逐行 diff |
 | Git 分支 | 读取 `.git` 的分支与当前分支；演示仓库可切换、新建分支，基线与工作树整组替换 |
 | Monaco diff | 懒加载 Monaco DiffEditor：删除行红底、新增行绿底，实时 `+N −M` 统计，可并排或行内 |
-| 实时状态条 | 输入框下方每秒刷新输入 / 输出 token、首字延迟、缓存命中率、速度与用时，数字变化带模糊跳动 |
+| 实时状态条 | 输入框下方每秒刷新输入 / 输出 token、首字延迟、缓存命中率、瞬时速度与用时；速度取最近 1.2s 的差分，停顿时会落回 0，跑完才显示整轮平均。数字变化带模糊跳动 |
+| 上下文占用 | 输入框右下角的圆环按模型窗口折算本轮上下文的占用，超过 60% 变琥珀、85% 变红 |
+| 液态玻璃 | 侧边栏与输入框用 canvas 位移贴图 + `backdrop-filter: url(#filter)` 做真实折射，参数 0.45 / 0.60 / 0.6 / 0.11 / 1px |
+| 渐进式模糊 | 对话顶部与输入框下方各叠一组渐变蒙版的模糊层，内容滚进标题栏或输入区时逐级虚化 |
+| 问题导航 | 消息区右侧一列刻度对应每一条提问，当前读到哪条就亮哪条；悬停展开成问题列表，点一下平滑滚到该条 |
+| 运行时设置 | 设置里的「Agent 运行时」：工具调用开关、执行权限、最大步数、温度与 Top P、演示模式 |
 | 流式文字动画 | 新到的文字从偏下位置轻微上浮并解除高斯模糊，落位时回弹一下 |
 | 模型选择 | 下拉切换模型，支持从远端 `/models` 拉取并缓存，失败时回落到内置列表 |
 | 思考强度 | 深度思考按钮展开五档轨道，真实下发 `reasoning_effort` 与思考预算，满档提示额度消耗 |
@@ -178,8 +183,11 @@ cd desktop
 pip install -r requirements.txt
 python -m agentdesk                       # 默认 127.0.0.1:8765
 python -m agentdesk --sandbox ~/Work      # 指定工作目录
+python -m agentdesk --allow-path ~/notes  # 额外放行的目录，可重复
 python -m agentdesk --serve-web ../dist   # 同时托管构建产物
 ```
+
+沙箱之外默认只放行 `~/.skills`，Agent 用绝对路径或 `~/` 开头的路径就能直接读技能说明与脚本，其余目录仍然越界报错。
 
 启动后终端会显示**访问令牌**，把它填到网页的 **Agent 能力 → 桌面端** 即可连接。也可以直接用带参数的地址打开：
 
@@ -344,6 +352,7 @@ src/
   components/agent/      工具卡片、产物卡片、组件卡片、审批弹窗、提问面板、能力面板
   components/workspace/  工作区面板、文件树、Monaco diff 预览
   components/chatInput/  输入框、模型选择、思考强度轨道、实时状态条
+  components/messages/   消息流与右侧问题导航（QuestionNav）
   components/markdown/   自定义节点渲染（高亮、波浪线、alert、逐字入场）
   services/agent/
     tools/               浏览器内置工具、widget、子 Agent 入口、ask_user、workspace
@@ -395,3 +404,21 @@ docs/screenshots/        文档配图
 ## 许可证
 
 [MIT](LICENSE)。原项目版权归 DeepSeek 所有，改造部分同样以 MIT 发布。
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=aoan2011%2Fdeepseek-agent&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=aoan2011/deepseek-agent&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=aoan2011/deepseek-agent&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=aoan2011/deepseek-agent&type=date&legend=top-left" />
+ </picture>
+</a>
+
+## Contributors
+<a href="https://github.com/Aoan2011/DeepSeek-Agent/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Aoan2011/DeepSeek-Agent" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).
+

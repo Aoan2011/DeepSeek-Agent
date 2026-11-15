@@ -28,12 +28,20 @@ def default_sandbox() -> Path:
     return Path(os.environ.get("AGENTDESK_SANDBOX", Path.home() / "AgentWorkspace")).expanduser()
 
 
+def default_allowed_paths() -> list[Path]:
+    """~/.skills 默认放行：Agent 需要直接读技能说明与脚本，否则一切都被关在沙箱里。"""
+    custom = os.environ.get("AGENTDESK_SKILLS")
+    return [Path(custom).expanduser() if custom else Path.home() / ".skills"]
+
+
 @dataclass
 class Settings:
     host: str = "127.0.0.1"
     port: int = 8765
     token: str = ""
     sandbox: Path = field(default_factory=default_sandbox)
+    # 除沙箱外额外放行的目录
+    allowed_paths: list[Path] = field(default_factory=default_allowed_paths)
     web_root: Path | None = None
     web_port: int = 8890
     allowed_origins: list[str] = field(default_factory=list)
@@ -47,6 +55,7 @@ class Settings:
             "version": "1.0.0",
             "platform": f"{sys.platform} · Python {sys.version.split()[0]}",
             "sandbox": str(self.sandbox),
+            "allowed": [str(path) for path in self.allowed_paths],
             "capabilities": ["files", "shell", "python", "mcp"],
         }
 

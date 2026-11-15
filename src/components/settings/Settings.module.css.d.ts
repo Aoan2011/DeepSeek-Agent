@@ -20,6 +20,12 @@ declare const styles: {
   readonly "themeOption": string;
   readonly "themeOptionSelected": string;
   readonly "description": string;
+  readonly "stepper": string;
+  readonly "sampling": string;
+  readonly "samplingHead": string;
+  readonly "sliders": string;
+  readonly "slider": string;
+  readonly "sliderHead": string;
   readonly "error": string;
   readonly "apiKey": string;
   readonly "apiKeySaved": string;

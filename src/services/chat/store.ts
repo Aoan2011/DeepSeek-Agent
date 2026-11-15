@@ -17,6 +17,7 @@ import {
   noteDelta,
   noteUsage,
 } from './liveStats.js'
+import { noteContextUsage } from './contextUsage.js'
 import {
   clearAllDrafts,
   clearDraft,
@@ -998,7 +999,12 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     const settings = useSettings.getState()
     // 续写使用前缀，不能同时跑工具循环；关闭 agent 时退化为普通聊天。
     const agentEnabled = settings.agentEnabled && !request.prefix
-    const maxRounds = agentEnabled ? settings.maxToolRounds : 0
+    // 关掉「最大步数」后不设上限，交给用户自己盯；打开时按设置值收口
+    const maxRounds = agentEnabled
+      ? settings.maxStepsEnabled
+        ? settings.maxToolRounds
+        : Number.POSITIVE_INFINITY
+      : 0
     /** 服务端不支持自定义工具时，去掉工具声明重试一次，至少保证对话可用 */
     let fallbackWithoutTools = false
     /** 服务端不认识思考强度字段时，退回只声明 enabled，保证对话可用 */
@@ -1047,6 +1053,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
               ? { reasoning_effort: reasoningEffortValue(effort) }
               : {}),
             safety_check: SAFETY_CHECK,
+            // 采样参数留空时不下发，走服务端默认值
+            ...(settings.temperature !== null ? { temperature: settings.temperature } : {}),
+            ...(settings.topP !== null ? { top_p: settings.topP } : {}),
             tools: requestTools(initial.search ?? false, agentEnabled && !fallbackWithoutTools),
             ...(withTitle ? { title: { enabled: true } } : {}),
           }
@@ -1062,6 +1071,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             receivedContent ||= event.type === 'content_block_start'
             if (event.type === 'message_start') {
               noteUsage(event.message.usage, 'start')
+              noteContextUsage(sessionId, event.message.usage)
             } else if (event.type === 'content_block_delta') {
               if (event.delta.type === 'text_delta') {
                 noteDelta('text', event.delta.text)

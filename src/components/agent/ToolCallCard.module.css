@@ -128,48 +128,29 @@ body[data-ds-dark-theme] .card {
   cursor: pointer;
 }
 
+/* 工具图标直接落在卡片上，不加底色方块，和周围文字更统一 */
 .icon {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 18px;
+  height: 18px;
   color: var(--dsw-alias-brand-primary);
-  background: var(--dsw-static-blue-50);
-  transition: transform 0.3s var(--ds-ease-in-out), background 0.2s, color 0.2s;
-}
-
-body[data-ds-dark-theme] .icon {
-  background: var(--dsw-static-blue-900);
+  background: none;
+  transition: color 0.2s;
 }
 
 .wrap[data-status='done'] .icon {
   color: var(--dsw-static-green-500);
-  background: var(--dsw-static-green-100);
-}
-
-body[data-ds-dark-theme] .wrap[data-status='done'] .icon {
-  background: var(--dsw-static-green-900);
 }
 
 .wrap[data-status='error'] .icon,
 .wrap[data-status='denied'] .icon {
   color: var(--dsw-alias-state-error-primary);
-  background: rgba(242, 90, 90, 0.1);
 }
 
 .wrap[data-status='awaiting'] .icon {
   color: var(--dsw-static-amber-600);
-  background: var(--dsw-static-amber-100);
-}
-
-body[data-ds-dark-theme] .wrap[data-status='awaiting'] .icon {
-  background: var(--dsw-static-amber-900);
-}
-
-.head:hover .icon {
-  transform: rotate(-4deg) scale(1.04);
 }
 
 .titles {

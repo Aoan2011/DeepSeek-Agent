@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   IconDarkOutline16,
   IconDataOutline16,
@@ -20,17 +20,29 @@ import { useChatStore } from '../../services/chat/store.js'
 import { regionCodes, getRegionName, provinces } from '../../services/location.js'
 import {
   isChineseBrowser,
+  MAX_TEMPERATURE,
+  MAX_TOP_P,
+  setAgentEnabled,
   setLocale,
   setLocation,
+  setMaxStepsEnabled,
+  setMaxToolRounds,
+  setMockAgent,
+  setMotion,
+  setTemperature,
   setThemePreference,
+  setToolApproval,
+  setTopP,
   setTtsVoice,
   useSettings,
   type ThemePreference,
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
+import { IconSpark } from '../agent/ToolIcons.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
+import { Switch } from '../base/Switch.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
 import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
@@ -51,6 +63,7 @@ const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode
     label: 'settingDialogAsideGeneralOptionLabel',
     icon: <IconSettingsOutline16 />,
   },
+  { value: 'agent', label: 'settingDialogAsideAgentOptionLabel', icon: <IconSpark /> },
   { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
 ]
 
@@ -100,6 +113,15 @@ const SettingsContent = () => {
               <LocaleSetting />
               <TtsVoiceSetting />
               <LocationSetting />
+              <MotionSetting />
+            </>
+          ) : section === 'agent' ? (
+            <>
+              <AgentEnabledSetting />
+              <ToolApprovalSetting />
+              <MaxStepsSetting />
+              <SamplingSetting />
+              <MockAgentSetting />
             </>
           ) : (
             <>
@@ -308,6 +330,226 @@ const TtsVoiceSetting = () => {
             { value: 'tide', label: t('settingsTtsVoiceTide') },
           ]}
           onChange={setTtsVoice}
+        />
+      }
+    />
+  )
+}
+
+/** 切换开关类设置的通用外壳：右侧只有一个开关 */
+const ToggleCell = ({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string
+  description?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) => (
+  <SettingCell
+    label={label}
+    description={description}
+    status={null}
+    action={<Switch checked={checked} label={label} onChange={onChange} />}
+  />
+)
+
+/** 工具调用总开关：关掉后退化为纯聊天 */
+const AgentEnabledSetting = () => {
+  const t = useTranslate()
+  const enabled = useSettings((state) => state.agentEnabled)
+  return (
+    <ToggleCell
+      label={t('settingsAgentEnabled')}
+      description={t('settingsAgentEnabledHint')}
+      checked={enabled}
+      onChange={setAgentEnabled}
+    />
+  )
+}
+
+/** 工具执行权限：完全访问后写文件、执行命令不再逐个弹窗 */
+const ToolApprovalSetting = () => {
+  const t = useTranslate()
+  const approval = useSettings((state) => state.toolApproval)
+  return (
+    <SettingCell
+      label={t('settingsAgentApproval')}
+      description={t('settingsAgentApprovalHint')}
+      status={null}
+      action={
+        <Select
+          ariaLabel={t('settingsAgentApproval')}
+          value={approval}
+          options={[
+            { value: 'auto', label: t('settingsAgentApprovalAuto') },
+            { value: 'ask', label: t('settingsAgentApprovalAsk') },
+          ]}
+          onChange={(value) => setToolApproval(value === 'ask' ? 'ask' : 'auto')}
+        />
+      }
+    />
+  )
+}
+
+/** 最大步数：开关决定是否收口，输入框改具体轮次 */
+const MaxStepsSetting = () => {
+  const t = useTranslate()
+  const enabled = useSettings((state) => state.maxStepsEnabled)
+  const rounds = useSettings((state) => state.maxToolRounds)
+  return (
+    <SettingCell
+      label={t('settingsAgentMaxRounds')}
+      description={t('settingsAgentMaxRoundsHint')}
+      status={null}
+      action={
+        <>
+          <label className={styles.stepper} data-disabled={!enabled || undefined}>
+            <input
+              type="number"
+              min={1}
+              max={24}
+              value={rounds}
+              disabled={!enabled}
+              aria-label={t('settingsAgentMaxRounds')}
+              onChange={(event) => setMaxToolRounds(Number(event.target.value))}
+            />
+            <span>{t('settingsAgentMaxRoundsUnit')}</span>
+          </label>
+          <Switch
+            checked={enabled}
+            label={t('settingsAgentMaxRounds')}
+            onChange={setMaxStepsEnabled}
+          />
+        </>
+      }
+    />
+  )
+}
+
+/** 采样参数滑杆：值留空表示不下发，由服务端默认 */
+const SamplingSlider = ({
+  label,
+  value,
+  max,
+  step,
+  fallback,
+  onChange,
+}: {
+  label: string
+  value: number | null
+  max: number
+  step: number
+  /** 未设置时滑块停在服务端默认值的位置，位置不撒谎 */
+  fallback: number
+  onChange: (value: number) => void
+}) => {
+  const t = useTranslate()
+  const inherit = value === null
+  const current = value ?? fallback
+  const fill = max > 0 ? `${Math.min(100, Math.max(0, (current / max) * 100))}%` : '0%'
+  return (
+    <label className={styles.slider}>
+      <span className={styles.sliderHead}>
+        <span>{label}</span>
+        <b data-inherit={inherit || undefined}>
+          {inherit ? t('settingsAgentSamplingDefault') : current.toFixed(2)}
+        </b>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={step}
+        value={current}
+        data-inherit={inherit || undefined}
+        aria-label={label}
+        style={{ '--fill': fill } as CSSProperties}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  )
+}
+
+const SamplingSetting = () => {
+  const t = useTranslate()
+  const temperature = useSettings((state) => state.temperature)
+  const topP = useSettings((state) => state.topP)
+  return (
+    <div className={clsx(styles.cell, styles.sampling)}>
+      <div className={styles.samplingHead}>
+        <div className={styles.text}>
+          <div className={styles.label}>{t('settingsAgentSampling')}</div>
+          <div className={styles.description}>{t('settingsAgentSamplingHint')}</div>
+        </div>
+        <Button
+          variant="outlined"
+          size="s"
+          className={styles.cellButton}
+          disabled={temperature === null && topP === null}
+          onClick={() => {
+            setTemperature(null)
+            setTopP(null)
+          }}
+        >
+          {t('settingsAgentSamplingReset')}
+        </Button>
+      </div>
+      <div className={styles.sliders}>
+        <SamplingSlider
+          label={t('settingsAgentTemperature')}
+          value={temperature}
+          max={MAX_TEMPERATURE}
+          step={0.05}
+          fallback={1}
+          onChange={setTemperature}
+        />
+        <SamplingSlider
+          label={t('settingsAgentTopP')}
+          value={topP}
+          max={MAX_TOP_P}
+          step={0.01}
+          fallback={1}
+          onChange={setTopP}
+        />
+      </div>
+    </div>
+  )
+}
+
+/** 演示模式：用本地脚本化模型，方便没有 Key 时体验工具链路 */
+const MockAgentSetting = () => {
+  const t = useTranslate()
+  const mock = useSettings((state) => state.mockAgent)
+  return (
+    <ToggleCell
+      label={t('settingsAgentMock')}
+      description={t('settingsAgentMockHint')}
+      checked={mock}
+      onChange={setMockAgent}
+    />
+  )
+}
+
+/** 界面动效强度：精简模式关掉背景光斑与弹入动画 */
+const MotionSetting = () => {
+  const t = useTranslate()
+  const motion = useSettings((state) => state.motion)
+  return (
+    <SettingCell
+      label={t('settingsMotion')}
+      status={null}
+      action={
+        <Select
+          ariaLabel={t('settingsMotion')}
+          value={motion}
+          options={[
+            { value: 'full', label: t('settingsMotionFull') },
+            { value: 'reduced', label: t('settingsMotionReduced') },
+          ]}
+          onChange={(value) => setMotion(value === 'reduced' ? 'reduced' : 'full')}
         />
       }
     />

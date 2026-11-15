@@ -19,6 +19,7 @@ import { showToast } from '../base/toastState.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { closeMobileSider, useMobileSider } from './mobileSiderState.js'
 import { SessionItem } from './SessionItem.js'
+import { useLiquidGlass } from '../glass/useLiquidGlass.js'
 import styles from './Sider.module.css'
 
 /** 展开的侧边栏：名称与收起按钮、开启新对话、按时间分组的会话列表、底部设置；移动端放在抽屉里，收起按钮关闭抽屉 */
@@ -40,6 +41,8 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
     isExtensionAvailable
   )
   const liveCount = Number(desktopReady) + Number(mcpReady) + Number(extensionReady)
+  // 侧边栏是液态玻璃：整块半透明，靠折射贴图把背后的极光折出厚度
+  const glassRef = useLiquidGlass<HTMLDivElement>()
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -66,7 +69,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   }, [])
 
   return (
-    <div className={clsx(styles.sider, mobile && styles.mobile)}>
+    <div ref={glassRef} className={clsx(styles.sider, mobile && styles.mobile)}>
       <div className={styles.top}>
         <div className={styles.appName}>{t('appName')}</div>
         <IconButton

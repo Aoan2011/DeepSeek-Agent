@@ -104,7 +104,7 @@ def start_static_server(root: Path, port: int) -> ThreadingHTTPServer:
 class AgentServer:
     def __init__(self, state: AppState) -> None:
         self.state = state
-        self.sandbox = Sandbox(state.settings.sandbox)
+        self.sandbox = Sandbox(state.settings.sandbox, state.settings.allowed_paths)
         self.static: ThreadingHTTPServer | None = None
         self._server: Any = None
 

@@ -154,6 +154,9 @@ export const runSubagent = async (input: SubagentInput): Promise<SubagentResult>
       system: SYSTEM_PROMPT,
       messages,
       thinking: { type: 'disabled' },
+      // 子 Agent 沿用主对话的采样参数，保持输出风格一致
+      ...(settings.temperature !== null ? { temperature: settings.temperature } : {}),
+      ...(settings.topP !== null ? { top_p: settings.topP } : {}),
       safety_check: { level: 'high' },
       tools: declarations,
     }

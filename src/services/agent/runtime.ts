@@ -1,5 +1,6 @@
 import type { ClientToolDefinition } from '../api/types.js'
 import type { AssistantMessage, ReplyBlock, ToolCallPart } from '../chat/types.js'
+import { useSettings } from '../settings.js'
 import { requestApproval } from './approval.js'
 import { getTool, listTools, runTool } from './registry.js'
 import type { ApprovalDecision, ToolDefinition, ToolResult } from './types.js'
@@ -134,6 +135,9 @@ export const runToolCalls = async (
   const calls = reply.blocks.filter(
     (block): block is ToolCallPart => block.type === 'tool_use' && block.status === 'pending'
   )
+  // 设置里把审批切成「完全访问」后不再逐个弹窗，直接执行；
+  // 默认仍是每次询问，危险操作由用户当场决定
+  const autoApprove = useSettings.getState().toolApproval === 'auto'
   for (const call of calls) {
     if (options.signal.aborted) {
       break
@@ -171,11 +175,12 @@ export const runToolCalls = async (
       label: definition.label,
       risk: definition.risk,
       source: definition.source,
-      status: needsApproval(definition) ? 'awaiting' : 'running',
+      status: needsApproval(definition) && !autoApprove ? 'awaiting' : 'running',
+      ...(needsApproval(definition) && autoApprove ? { decision: 'allow' as const } : {}),
     }))
     options.update(reply)
 
-    if (needsApproval(definition)) {
+    if (needsApproval(definition) && !autoApprove) {
       decision = await requestApproval({
         id: `approve-${call.id}`,
         sessionId: options.sessionId,

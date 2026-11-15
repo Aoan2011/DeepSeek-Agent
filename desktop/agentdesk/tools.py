@@ -74,11 +74,14 @@ def definitions() -> list[dict[str, Any]]:
     return [
         {
             "name": "desk_fs_read",
-            "description": "读取沙箱内文件的文本内容。支持按行范围读取，超过 400KB 会截断。用于查看代码、文档、日志。",
+            "description": "读取沙箱内文件的文本内容。支持按行范围读取，超过 400KB 会截断。用于查看代码、文档、日志。也可以用绝对路径或 ~ 开头的路径读取 ~/.skills 等已放行的目录。",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "相对沙箱的路径，例如 src/app.tsx"},
+                    "path": {
+                        "type": "string",
+                        "description": "相对沙箱的路径（如 src/app.tsx），或 ~/.skills/xxx/SKILL.md 这类已放行目录的路径",
+                    },
                     "start_line": {"type": "number", "description": "起始行，从 1 开始"},
                     "end_line": {"type": "number", "description": "结束行（含）"},
                 },
@@ -88,7 +91,7 @@ def definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "desk_fs_list",
-            "description": "列出沙箱内目录的内容，返回树状文本，标注文件大小。",
+            "description": "列出沙箱内目录的内容，返回树状文本，标注文件大小。也可以列 ~/.skills 等已放行目录。",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -332,12 +335,14 @@ async def _dispatch(name: str, args: dict[str, Any], context: ToolContext) -> di
 
     if name == "desk_system_info":
         usage = shutil.disk_usage(sandbox.root)
+        allowed = "、".join(sandbox.label(path) for path in sandbox.allowed) or "无"
         return _text(
             "\n".join(
                 [
                     f"系统：{platform.platform()}",
                     f"Python：{sys.version.split()[0]}（{sys.executable}）",
                     f"沙箱：{sandbox.root}",
+                    f"额外放行：{allowed}",
                     f"磁盘：可用 {human_size(usage.free)} / 共 {human_size(usage.total)}",
                     f"Shell：{'允许' if settings.allow_shell else '已禁用'}",
                     "可用工具：fs_read / fs_list / fs_stat / fs_write / fs_delete / fs_move / shell_exec / python_exec / screen_capture / mouse / keyboard / window",

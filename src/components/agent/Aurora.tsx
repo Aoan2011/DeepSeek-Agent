@@ -44,6 +44,7 @@ export const Aurora = () => {
 
   return (
     <div ref={ref} className={styles.root} aria-hidden data-motion={motion}>
+      <div className={styles.rail} />
       <div className={styles.blobA} />
       <div className={styles.blobB} />
       <div className={styles.blobC} />

@@ -46,21 +46,16 @@
   text-overflow: ellipsis;
 }
 
-/* 已开启时显示当前档位，关上后消失 */
-.badge {
+/* 已开启时显示当前档位名称，关闭后消失 */
+.level {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #5b5bf0, #8b5cf6);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--dsw-alias-brand-text);
+  white-space: nowrap;
 }
 
 .panel {

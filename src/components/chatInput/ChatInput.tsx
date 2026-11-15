@@ -32,7 +32,9 @@ import { VoiceButton } from './VoiceButton.js'
 import { Spectrum } from './Spectrum.js'
 import { ModelPicker } from './ModelPicker.js'
 import { ThinkingSlider } from './ThinkingSlider.js'
+import { ContextRing } from './ContextRing.js'
 import { AskUserPanel } from '../agent/AskUserPanel.js'
+import { useLiquidGlass } from '../glass/useLiquidGlass.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
 
@@ -57,6 +59,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
+  // 输入框本体是液态玻璃，背景由折射贴图实时替换
+  const glassRef = useLiquidGlass<HTMLDivElement>()
 
   useLayoutEffect(() => {
     const toggles = togglesRef.current
@@ -155,6 +159,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
 
   return (
     <div
+      ref={glassRef}
       className={clsx(styles.wrapper, sessionId === null ? styles.home : styles.session)}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
@@ -220,6 +225,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           </Tooltip>
         </div>
         <div className={styles.right}>
+          <ContextRing sessionId={sessionId} streaming={streaming} />
           <VoiceButton
             status={voice.status}
             disabled={!voice.available}

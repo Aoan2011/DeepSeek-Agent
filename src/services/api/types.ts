@@ -223,6 +223,10 @@ export type CreateMessageRequest = {
   thinking: { type: 'enabled' | 'disabled'; budget_tokens?: number }
   /** 思考强度；关闭思考时不带该字段 */
   reasoning_effort?: ReasoningEffort
+  /** 采样温度 0-2，不传则用服务端默认值 */
+  temperature?: number
+  /** 核采样 0-1，不传则用服务端默认值 */
+  top_p?: number
   tools: RequestTool[]
   /** 只允许模型在给定工具中选择时使用；默认交由模型自行决定 */
   tool_choice?: { type: 'auto' | 'any' | 'tool'; name?: string }

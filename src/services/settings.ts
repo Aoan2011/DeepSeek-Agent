@@ -23,10 +23,16 @@ type Settings = {
   siderCollapsed: boolean
   /** 是否启用工具调用（关闭后退化为纯聊天） */
   agentEnabled: boolean
-  /** 危险操作审批：ask 弹窗确认，auto 直接执行 */
+  /** 危险操作审批：ask 弹窗确认，auto 直接执行（完全访问，无需确认） */
   toolApproval: 'ask' | 'auto'
   /** 单轮对话内最多的工具调用轮次，防止死循环 */
   maxToolRounds: number
+  /** 是否启用最大步数限制；关闭后模型可以一直调用工具 */
+  maxStepsEnabled: boolean
+  /** 采样温度，null 表示不下发、用服务端默认值 */
+  temperature: number | null
+  /** 核采样 top_p，null 表示不下发、用服务端默认值 */
+  topP: number | null
   /** 演示模式：使用本地脚本化模型，便于无 Key 体验工具链路 */
   mockAgent: boolean
   /** 动画特效强度：full 完整，reduced 仅保留必要过渡 */
@@ -47,6 +53,9 @@ const KEYS = {
   agentEnabled: 'chat-agent:agent-enabled',
   toolApproval: 'chat-agent:tool-approval',
   maxToolRounds: 'chat-agent:max-tool-rounds',
+  maxStepsEnabled: 'chat-agent:max-steps-enabled',
+  temperature: 'chat-agent:temperature',
+  topP: 'chat-agent:top-p',
   mockAgent: 'chat-agent:mock-agent',
   motion: 'chat-agent:motion',
 } as const
@@ -140,6 +149,21 @@ const initialEffort = (): number => {
   return read(KEYS.thinking) === 'true' ? 2 : 0
 }
 
+/** 采样参数：没存过或存的值越界都当作「用默认」，即 null */
+const readOptional = (key: string, min: number, max: number): number | null => {
+  const raw = read(key)
+  if (raw === null || raw.trim() === '') {
+    return null
+  }
+  const value = Number(raw)
+  return Number.isFinite(value) && value >= min && value <= max ? value : null
+}
+
+export const MIN_TEMPERATURE = 0
+export const MAX_TEMPERATURE = 2
+export const MIN_TOP_P = 0
+export const MAX_TOP_P = 1
+
 export const useSettings = create<Settings>(() => ({
   apiKey: read(KEYS.apiKey),
   locale: initialLocale(),
@@ -155,6 +179,9 @@ export const useSettings = create<Settings>(() => ({
   agentEnabled: read(KEYS.agentEnabled) !== 'false',
   toolApproval: read(KEYS.toolApproval) === 'auto' ? 'auto' : 'ask',
   maxToolRounds: clampRounds(Number(read(KEYS.maxToolRounds) ?? 8)),
+  maxStepsEnabled: read(KEYS.maxStepsEnabled) !== 'false',
+  temperature: readOptional(KEYS.temperature, MIN_TEMPERATURE, MAX_TEMPERATURE),
+  topP: readOptional(KEYS.topP, MIN_TOP_P, MAX_TOP_P),
   mockAgent: read(KEYS.mockAgent) === 'true',
   motion: read(KEYS.motion) === 'reduced' ? 'reduced' : 'full',
 }))
@@ -239,6 +266,28 @@ export const setMaxToolRounds = (rounds: number) => {
   const maxToolRounds = clampRounds(rounds)
   write(KEYS.maxToolRounds, String(maxToolRounds))
   useSettings.setState({ maxToolRounds })
+}
+
+export const setMaxStepsEnabled = (maxStepsEnabled: boolean) => {
+  write(KEYS.maxStepsEnabled, String(maxStepsEnabled))
+  useSettings.setState({ maxStepsEnabled })
+}
+
+/** 传 null 表示回到服务端默认值，同时清掉本地记录 */
+export const setTemperature = (value: number | null) => {
+  const temperature =
+    value === null
+      ? null
+      : Math.min(MAX_TEMPERATURE, Math.max(MIN_TEMPERATURE, Math.round(value * 100) / 100))
+  write(KEYS.temperature, temperature === null ? null : String(temperature))
+  useSettings.setState({ temperature })
+}
+
+export const setTopP = (value: number | null) => {
+  const topP =
+    value === null ? null : Math.min(MAX_TOP_P, Math.max(MIN_TOP_P, Math.round(value * 100) / 100))
+  write(KEYS.topP, topP === null ? null : String(topP))
+  useSettings.setState({ topP })
 }
 
 export const setMockAgent = (mockAgent: boolean) => {

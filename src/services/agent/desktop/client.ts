@@ -12,6 +12,8 @@ export type DesktopInfo = {
   version: string
   platform: string
   sandbox: string
+  /** 沙箱之外额外放行的目录，默认包含 ~/.skills */
+  allowed?: string[]
   capabilities: string[]
 }
 

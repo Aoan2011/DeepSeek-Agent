@@ -51,11 +51,8 @@ export const ThinkingSlider = () => {
       >
         <IconThinkOutline14 />
         <span className={styles.label}>{t('thinkingSwitch')}</span>
-        {effort > 0 ? (
-          <span className={styles.badge} aria-hidden="true">
-            {effort}
-          </span>
-        ) : null}
+        {/* 档位用文字而不是数字，省得猜 1-4 各是什么强度 */}
+        {effort > 0 ? <span className={styles.level}>{t(LEVEL_KEYS[effort])}</span> : null}
       </button>
       {open
         ? createPortal(
