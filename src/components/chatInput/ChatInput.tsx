@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import {
   IconGlobeLanguageOutline14,
   IconPaperclipOutline16,
@@ -39,6 +39,7 @@ import { PermissionPicker } from './PermissionPicker.js'
 import { WorkspacePicker } from './WorkspacePicker.js'
 import { PromptPicker } from './PromptPicker.js'
 import { TaskButton } from './TaskButton.js'
+import { GoalButton } from './GoalButton.js'
 import { useLiquidGlass } from '../glass/useLiquidGlass.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
@@ -66,23 +67,6 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const togglesRef = useRef<HTMLDivElement>(null)
   // 输入框本体是液态玻璃，背景由折射贴图实时替换
   const glassRef = useLiquidGlass<HTMLDivElement>()
-
-  useLayoutEffect(() => {
-    const toggles = togglesRef.current
-    if (!toggles) {
-      return
-    }
-
-    const updateLabels = () => {
-      toggles.classList.remove(styles.collapsedToggles)
-      toggles.classList.toggle(styles.collapsedToggles, toggles.scrollWidth > toggles.clientWidth)
-    }
-
-    updateLabels()
-    const observer = new ResizeObserver(updateLabels)
-    observer.observe(toggles)
-    return () => observer.disconnect()
-  }, [t])
 
   const acceptFiles = (files: File[]) => {
     if (files.length === 0 || useChatStore.getState().importingHistory || !ensureApiKey()) {
@@ -247,6 +231,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           </Tooltip>
         </div>
         <div className={styles.right}>
+          <GoalButton />
           <TaskButton />
           <ContextRing sessionId={sessionId} streaming={streaming} />
           <VoiceButton

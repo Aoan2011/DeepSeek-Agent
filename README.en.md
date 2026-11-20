@@ -83,6 +83,14 @@ Load it via `chrome://extensions` → Developer mode → Load unpacked → `exte
 - **Inline previews** via `preview_file`: code, Markdown, HTML pages, images and CSV are rendered in a widget at the bottom of the answer.
 - **Image reading** via `view_image`: base64 data URLs, artifact ids or remote URLs are downscaled and sent to the model as image blocks.
 - **Questions** via `ask_user`, **widgets** via `show_widget` (sandboxed iframe).
+- **Request sanitising.** Tool output from pages and screenshots can contain lone surrogates or raw control characters; they are replaced before the request is serialised, truncation never splits a surrogate pair, and a 400 JSON-parse error triggers one retry with images stripped and long results clipped.
+
+### Goals
+
+- Goals survive across turns and are injected into the system prompt, so the agent keeps working towards the same target.
+- The goal panel (target icon next to the composer) creates, edits, completes, drops and reopens goals; completed goals keep their outcome text.
+- Three editable templates (feature delivery / research / debugging) fill the detail with a skeleton you can rewrite.
+- The agent can maintain goals itself through `manage_goals` (list / create / update / complete / drop / reopen / remove).
 
 ### Permissions
 
@@ -113,7 +121,7 @@ Load it via `chrome://extensions` → Developer mode → Load unpacked → `exte
 | --- | --- |
 | General | Theme, language, read-aloud voice, location |
 | Appearance & motion | Motion intensity, animation speed, per-effect toggles |
-| Agent | Tool toggle, approval default, max steps, parallel tools, background tasks, token counting, custom system prompt, custom prompts, sampling, demo mode |
+| Agent | Tool toggle, approval default, max steps, parallel tools, background tasks, token counting, custom system prompt, custom prompts (four seeded templates), sampling, demo mode |
 | Workspaces | List, refresh and remove workspaces |
 | Data | API key, import, export, delete everything |
 

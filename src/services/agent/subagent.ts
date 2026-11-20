@@ -7,6 +7,7 @@ import type {
 } from '../api/types.js'
 import type { MessageStreamEvent } from '../api/types.js'
 import { useSettings } from '../settings.js'
+import { clipText } from '../../utils/format.js'
 import { mockStreamMessage } from './mock.js'
 import { listTools, runTool } from './registry.js'
 import { needsApproval } from './types.js'
@@ -20,6 +21,8 @@ const MAX_TOOLS = 10
 /** 子 Agent 不暴露编排类工具，避免递归；也不允许反问用户，卡住时只能自己决定 */
 const EXCLUDED = new Set([
   'spawn_subagent',
+  // 目标由用户与主 Agent 维护，子 Agent 不该改动
+  'manage_goals',
   'show_widget',
   'ask_user',
   'workspace_write_file',
@@ -195,7 +198,7 @@ export const runSubagent = async (input: SubagentInput): Promise<SubagentResult>
       results.push({
         type: 'tool_result' as const,
         tool_use_id: call.id,
-        content: result.content.slice(0, MAX_REPORT),
+        content: clipText(result.content, MAX_REPORT),
         is_error: result.isError === true,
       })
     }

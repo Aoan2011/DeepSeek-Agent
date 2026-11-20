@@ -298,22 +298,36 @@ body[data-ds-dark-theme] .wrapper[data-glass].home {
 
 .functionRow {
   display: flex;
-  align-items: center;
+  /* 左侧换行时，右侧操作区贴最后一行，和发送按钮在同一水平线上 */
+  align-items: flex-end;
   gap: 8px;
   margin-top: 4px;
   padding: 12px;
 }
 
+/*
+ * 左侧以「放不下就换行」的方式排布：之前是 flex:1 但不换行，
+ * 加了权限/工作区之后子项被挤到右侧按钮上，出现重叠、点不到。
+ * 现在允许换行，右侧操作区固定不参与压缩，两者永远不会重叠。
+ */
 .toggles {
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   min-width: 0;
 }
 
 .collapsedToggles .toggleLabel {
   display: none;
+}
+
+/* 窄屏优先保住输入框宽度：搜索按钮退化为纯图标，避免整行换行 */
+@media (max-width: 1180px) {
+  .toggleLabel {
+    display: none;
+  }
 }
 
 .toggle {

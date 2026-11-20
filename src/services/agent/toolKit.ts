@@ -1,4 +1,5 @@
 import type { JsonSchema } from '../api/types.js'
+import { clipText } from '../../utils/format.js'
 import type { RegisteredTool, ToolDefinition, ToolResult } from './types.js'
 
 type DefineInput = {
@@ -60,9 +61,9 @@ export const ok = (content: string, extra?: Partial<ToolResult>): ToolResult => 
 
 export const fail = (content: string): ToolResult => ({ content, isError: true })
 
-/** 截断过长文本，避免工具结果吃掉上下文 */
+/** 截断过长文本，避免工具结果吃掉上下文；按代理对边界切，不产生半个 emoji */
 export const clip = (text: string, max: number) =>
-  text.length <= max ? text : `${text.slice(0, max)}\n\n…（已截断，共 ${text.length} 字符）`
+  text.length <= max ? text : `${clipText(text, max)}\n\n…（已截断，共 ${text.length} 字符）`
 
 export const objectSchema = (
   properties: Record<string, unknown>,

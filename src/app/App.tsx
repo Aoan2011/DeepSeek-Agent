@@ -25,6 +25,7 @@ import {
 } from '../components/workspace/workspacePanelState.js'
 import { Aurora } from '../components/agent/Aurora.js'
 import { TaskPanel } from '../components/agent/TaskPanel.js'
+import { GoalPanel } from '../components/agent/GoalPanel.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
@@ -167,6 +168,7 @@ export const App = () => {
       <SettingsDialog />
       <AgentPanel />
       <TaskPanel />
+      <GoalPanel />
       <WorkspacePanel />
       <Toast />
     </>

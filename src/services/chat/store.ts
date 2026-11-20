@@ -24,6 +24,7 @@ import {
   noteUsage,
 } from './liveStats.js'
 import { noteContextUsage } from './contextUsage.js'
+import { goalsPrompt } from '../goals.js'
 import {
   clearAllDrafts,
   clearDraft,
@@ -53,10 +54,11 @@ import {
 const MODEL: ChatModel = 'deepseek-flash'
 /** 所有生成请求统一携带的助手身份说明 */
 const BASE_SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
-/** 用户自定义提示词追加在服务端提示之后，留空时只用基础提示 */
+/** 用户自定义提示词与当前目标追加在服务端提示之后 */
 const systemPrompt = () => {
   const extra = useSettings.getState().systemPrompt.trim()
-  return extra ? `${BASE_SYSTEM_PROMPT}\n\n${extra}` : BASE_SYSTEM_PROMPT
+  const base = extra ? `${BASE_SYSTEM_PROMPT}\n\n${extra}` : BASE_SYSTEM_PROMPT
+  return `${base}${goalsPrompt()}`
 }
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
@@ -1070,6 +1072,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     let fallbackWithoutTools = false
     /** 服务端不认识思考强度字段时，退回只声明 enabled，保证对话可用 */
     let fallbackNoReasoning = false
+    /** 服务端解析请求体失败时，去掉图片与超长结果重试，先把这一轮救回来 */
+    let compactRequest = false
 
     for (let round = 0; ; round += 1) {
       let hasPendingTools = false
@@ -1096,7 +1100,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             initial.thinking ?? false,
             latestReminder,
             // 工具轮回：把本轮已产生的调用与结果接在提问之后
-            round > 0 ? reply : undefined
+            round > 0 ? reply : undefined,
+            compactRequest
           )
           const withTitle = round === 0 && titleRequests.has(controller)
           const effort = initial.thinking ? useSettings.getState().reasoningEffort : 0
@@ -1196,6 +1201,18 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             /tool/i.test(error.message)
           ) {
             fallbackWithoutTools = true
+            continue
+          }
+          // 请求体被服务端判为非法 JSON（多为工具结果里的异常字符或超大图片）：
+          // 去掉图片、进一步截断后重发一次
+          if (
+            !compactRequest &&
+            !receivedContent &&
+            error instanceof ApiError &&
+            error.status === 400 &&
+            /json|escape|parse/i.test(error.message)
+          ) {
+            compactRequest = true
             continue
           }
           // 服务端不认识 reasoning_effort / budget_tokens 时，降级为普通思考请求

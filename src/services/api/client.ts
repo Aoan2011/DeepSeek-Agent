@@ -1,6 +1,7 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { resizeUploadImage } from '../../utils/resizeUploadImage.js'
 import { readMessageEvent } from './parseEvent.js'
+import { stringifyBody } from './sanitize.js'
 import { readServerSentEvents } from './sse.js'
 import type {
   ApiErrorBody,
@@ -155,7 +156,8 @@ export async function* streamMessage(
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
     },
-    body: JSON.stringify({ ...body, stream: true }),
+    // 统一净化后序列化：工具结果里可能带孤立代理项或控制字符
+    body: stringifyBody({ ...body, stream: true }),
     signal,
   })
   const contentType = response.headers.get('Content-Type') ?? ''

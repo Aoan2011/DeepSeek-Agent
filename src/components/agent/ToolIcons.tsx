@@ -177,6 +177,8 @@ export const toolIcon = (name: string, source?: ToolSource) => {
     case 'create_tool':
     case 'run_tool_chain':
       return <IconBolt />
+    case 'manage_goals':
+      return <IconTarget />
     case 'browser_screenshot':
     case 'desk_screenshot':
       return <IconCamera />
@@ -243,5 +245,13 @@ export const IconCamera = (props: IconProps) => (
   <svg {...base(props)}>
     <path d="M2 5.6c0-.7.5-1.2 1.2-1.2h1.6l.8-1.2h4.8l.8 1.2h1.6c.7 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H3.2A1.2 1.2 0 0 1 2 11.2V5.6Z" />
     <circle cx="8" cy="8.2" r="2.2" />
+  </svg>
+)
+
+export const IconTarget = (props: IconProps) => (
+  <svg {...base(props)}>
+    <circle cx="8" cy="8" r="5.6" />
+    <circle cx="8" cy="8" r="2.6" />
+    <circle cx="8" cy="8" r="0.6" fill="currentColor" stroke="none" />
   </svg>
 )

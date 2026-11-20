@@ -7,6 +7,7 @@ import type {
   TextBlockParam,
   ToolResultBlockParam,
 } from '../api/types.js'
+import { clipText } from '../../utils/format.js'
 import type {
   AssistantMessage,
   FileAttachment,
@@ -265,9 +266,18 @@ const toUserParam = ({ content, files }: UserMessage): MessageParam => {
       }
 }
 
-/** 工具结果里带图片时改写成「文本 + 图片」块数组，其余保持纯字符串 */
-const toResultContent = (block: ToolResultPart): ToolResultBlockParam['content'] => {
+/**
+ * 工具结果里带图片时改写成「文本 + 图片」块数组，其余保持纯字符串。
+ * compact 模式（服务端解析失败后重试）只回文本并进一步截断，先保住这一轮。
+ */
+const toResultContent = (
+  block: ToolResultPart,
+  compact = false
+): ToolResultBlockParam['content'] => {
   const text = block.content || '（无内容）'
+  if (compact) {
+    return clipText(text, 4000)
+  }
   if (!block.images?.length) {
     return text
   }
@@ -298,7 +308,8 @@ const toResultContent = (block: ToolResultPart): ToolResultBlockParam['content']
 const toAssistantTurns = (
   { blocks }: AssistantMessage,
   prefix = false,
-  thinking = false
+  thinking = false,
+  compact = false
 ): MessageParam[] => {
   const turns: MessageParam[] = []
   let content: AssistantBlockParam[] = []
@@ -346,7 +357,7 @@ const toAssistantTurns = (
       pendingResults.push({
         type: 'tool_result',
         tool_use_id: block.tool_use_id,
-        content: toResultContent(block),
+        content: toResultContent(block, compact),
         ...(block.isError ? { is_error: true } : {}),
       })
       continue
@@ -425,7 +436,9 @@ export const toRequestMessages = (
   thinking = prefix?.thinking ?? false,
   latestReminder?: string,
   /** 本轮已产生的回复：工具循环中把调用与结果继续接在提问之后 */
-  current?: AssistantMessage
+  current?: AssistantMessage,
+  /** 精简模式：图片与长结果都不回传，用于服务端解析失败后的重试 */
+  compact = false
 ): MessageParam[] => {
   const messages: MessageParam[] = []
   let previousReminder: string | undefined
@@ -442,12 +455,12 @@ export const toRequestMessages = (
       continue
     }
     appendReminder(reply.latestReminder)
-    messages.push(toUserParam(user), ...toAssistantTurns(reply))
+    messages.push(toUserParam(user), ...toAssistantTurns(reply, false, false, compact))
   }
   appendReminder(latestReminder)
   messages.push(toUserParam(question))
   if (prefix?.prefix) {
-    const [assistant] = toAssistantTurns(prefix, true, thinking)
+    const [assistant] = toAssistantTurns(prefix, true, thinking, compact)
     // 没有非空白正文或有效思考时直接重发原问题，避免服务端拒绝空 Prefill。
     if (
       assistant?.role === 'assistant' &&
@@ -461,7 +474,7 @@ export const toRequestMessages = (
     }
   }
   if (current) {
-    messages.push(...toAssistantTurns(current))
+    messages.push(...toAssistantTurns(current, false, false, compact))
   }
   return messages
 }

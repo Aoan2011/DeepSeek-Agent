@@ -1,6 +1,7 @@
 import type { ClientToolDefinition } from '../api/types.js'
 import type { AssistantMessage, ReplyBlock, ToolCallPart } from '../chat/types.js'
 import { useSettings } from '../settings.js'
+import { clipText } from '../../utils/format.js'
 import { requestApproval } from './approval.js'
 import { getTool, listTools, runTool } from './registry.js'
 import { startTask, type TaskHandle } from './tasks.js'
@@ -13,7 +14,7 @@ const MAX_RESULT_CHARS = 24_000
 const clipResult = (text: string) =>
   text.length <= MAX_RESULT_CHARS
     ? text
-    : `${text.slice(0, MAX_RESULT_CHARS)}\n\n…（结果过长已截断，共 ${text.length} 字符）`
+    : `${clipText(text, MAX_RESULT_CHARS)}\n\n…（结果过长已截断，共 ${text.length} 字符）`
 
 /** 工具默认超时：本机执行可能较慢；个别工具（如等待用户回答）可以覆盖为无限 */
 const timeoutFor = (definition: ToolDefinition) =>
