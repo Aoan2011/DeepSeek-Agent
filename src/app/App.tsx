@@ -23,12 +23,13 @@ import {
   openWorkspacePanel,
   useWorkspacePanel,
 } from '../components/workspace/workspacePanelState.js'
-import { ApprovalDialog } from '../components/agent/ApprovalDialog.js'
 import { Aurora } from '../components/agent/Aurora.js'
+import { TaskPanel } from '../components/agent/TaskPanel.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
 import { initAgent } from '../services/agent/index.js'
+import { initWorkspace } from '../services/workspace/store.js'
 import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
@@ -99,6 +100,8 @@ export const App = () => {
     ensureApiKey()
     // 注册内置工具、扩展桥、桌面端与 MCP
     initAgent()
+    // 工作区列表在输入框选择器里就要能读到，不等面板打开
+    initWorkspace()
   }, [])
 
   return (
@@ -163,8 +166,8 @@ export const App = () => {
       </div>
       <SettingsDialog />
       <AgentPanel />
+      <TaskPanel />
       <WorkspacePanel />
-      <ApprovalDialog />
       <Toast />
     </>
   )

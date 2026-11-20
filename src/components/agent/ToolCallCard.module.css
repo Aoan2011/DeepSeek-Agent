@@ -1,143 +1,54 @@
+/**
+ * 工具调用行：与搜索步骤同一套视觉。
+ * 没有卡片外壳、边框和底色，只有图标 + 目的 + 状态，靠左侧竖线与时间线连起来。
+ */
+
 .wrap {
   position: relative;
-  padding: 6px 0 6px 22px;
+  max-width: 100%;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-markdown-small);
 }
 
-.withLine::before {
+.withLine::after {
   content: '';
   position: absolute;
   left: 7.5px;
-  top: 28px;
+  top: 31px;
   width: 1px;
   height: calc(100% - 24px);
-  background: var(--dsw-alias-label-dimmed);
-}
-
-.dot {
-  position: absolute;
-  left: 0;
-  top: 14px;
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--dsw-alias-bg-base);
-}
-
-.dotInner {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--dsw-alias-brand-primary);
-  box-shadow: 0 0 0 3px rgba(57, 100, 254, 0.12);
-  transition:
-    background 0.2s,
-    box-shadow 0.2s;
-}
-
-.card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 42%),
-    var(--dsw-alias-bg-layer-2);
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.04),
-    0 0 0 0 transparent;
-  transition:
-    border-color 0.24s var(--ds-ease-in-out),
-    box-shadow 0.24s var(--ds-ease-in-out),
-    transform 0.24s var(--ds-ease-in-out);
-  animation: toolCardIn 0.36s var(--ds-ease-in-out) both;
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(57, 100, 254, 0.75),
-      rgba(122, 200, 255, 0.7),
-      transparent
-    );
-    opacity: 0;
-  }
-
-  &:hover {
-    border-color: rgba(57, 100, 254, 0.28);
-  }
-}
-
-body[data-ds-dark-theme] .card {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 46%),
-    var(--dsw-alias-bg-layer-2);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-/* 状态着色：用显式选择器，避免嵌套里的父引用在不同浏览器下解析不一致 */
-.wrap[data-status='done'] .dotInner {
-  background: var(--dsw-static-green-500);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
-}
-
-.wrap[data-status='error'] .dotInner,
-.wrap[data-status='denied'] .dotInner {
-  background: var(--dsw-alias-state-error-primary);
-  box-shadow: 0 0 0 3px rgba(242, 90, 90, 0.14);
-}
-
-.wrap[data-status='awaiting'] .dotInner {
-  background: var(--dsw-static-amber-500);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
-  animation: toolDotPulse 1.6s ease-in-out infinite;
-}
-
-.wrap[data-status='running'] .card,
-.wrap[data-status='awaiting'] .card {
-  border-color: rgba(57, 100, 254, 0.32);
-  box-shadow: 0 6px 22px -18px rgba(57, 100, 254, 0.85);
-}
-
-.wrap[data-status='running'] .card::after,
-.wrap[data-status='awaiting'] .card::after {
-  opacity: 1;
-  animation: toolScan 1.8s linear infinite;
-}
-
-.wrap[data-status='error'] .card {
-  border-color: rgba(242, 90, 90, 0.3);
+  background-color: var(--dsw-alias-label-dimmed);
 }
 
 .head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
+  height: 34px;
+  max-width: 100%;
   cursor: pointer;
+  user-select: none;
+
+  &:hover .purpose {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 
-/* 工具图标直接落在卡片上，不加底色方块，和周围文字更统一 */
 .icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  display: flex;
+  flex-shrink: 0;
+  margin-right: 6px;
+  padding: 1px;
+  color: var(--dsw-alias-label-tertiary);
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.wrap[data-status='running'] .icon,
+.wrap[data-status='awaiting'] .icon {
   color: var(--dsw-alias-brand-primary);
-  background: none;
-  transition: color 0.2s;
 }
 
 .wrap[data-status='done'] .icon {
@@ -149,50 +60,87 @@ body[data-ds-dark-theme] .card {
   color: var(--dsw-alias-state-error-primary);
 }
 
-.wrap[data-status='awaiting'] .icon {
-  color: var(--dsw-static-amber-600);
-}
-
-.titles {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  gap: 1px;
-}
-
-.label {
+/* 目的文案是这行的主体，比其他元信息重一点 */
+.purpose {
   overflow: hidden;
-  font-size: 13.5px;
-  font-weight: 500;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 52%;
+  color: var(--dsw-alias-label-primary);
   white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
 }
 
 .arg {
+  margin-left: 6px;
   overflow: hidden;
+  flex-shrink: 1;
   color: var(--dsw-alias-label-caption);
   font-family: var(--ds-font-family-code);
   font-size: 12px;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 文件改动：+N 红、−M 绿，点开直接跳到工作区 diff */
+.change {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: none;
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-2);
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 0.18s;
+
+  &:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    text-decoration: underline;
+  }
+}
+
+.add {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.del {
+  color: var(--dsw-static-green-500);
+}
+
+.badge {
+  flex-shrink: 0;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 17px;
 }
 
 .status {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 5px;
-  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 10px;
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
 }
 
 .pulse {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: currentColor;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .wrap[data-status='running'] .pulse {
@@ -201,8 +149,8 @@ body[data-ds-dark-theme] .card {
 }
 
 .wrap[data-status='awaiting'] .pulse {
-  opacity: 1;
   background: var(--dsw-static-amber-500);
+  opacity: 1;
   animation: toolBlink 1.4s ease-in-out infinite;
 }
 
@@ -218,24 +166,49 @@ body[data-ds-dark-theme] .card {
 }
 
 .duration {
-  flex: 0 0 auto;
+  flex-shrink: 0;
+  margin-left: 8px;
   color: var(--dsw-alias-label-caption);
   font-family: var(--ds-font-family-code);
   font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.detach {
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11.5px;
+  line-height: 16px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--dsw-alias-brand-primary);
+    color: var(--dsw-alias-brand-text);
+  }
 }
 
 .chevron {
   display: flex;
-  flex: 0 0 auto;
+  flex-shrink: 0;
+  margin-left: 6px;
   color: var(--dsw-alias-label-tertiary);
+  opacity: 0.7;
 }
 
+/* 展开区：不加卡片，用极轻的分隔线和小号代码块承接细节 */
 .body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 2px 12px 12px;
-  animation: toolBodyIn 0.26s var(--ds-ease-in-out) both;
+  margin: 2px 0 8px 26px;
+  padding-left: 10px;
+  border-left: 1px solid var(--dsw-alias-border-l2);
+  animation: toolBodyIn 0.22s var(--ds-ease-in-out) both;
 }
 
 .section {
@@ -250,7 +223,6 @@ body[data-ds-dark-theme] .card {
   letter-spacing: 0.02em;
 }
 
-/* ask_user：问题用正文，选项用轻量 chip，比一整块 JSON 好读 */
 .askQuestion {
   margin: 0;
   color: var(--dsw-alias-label-primary);
@@ -269,7 +241,6 @@ body[data-ds-dark-theme] .card {
   padding: 2px 8px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 7px;
-  background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-secondary);
   font-size: 11.5px;
   line-height: 1.5;
@@ -278,7 +249,7 @@ body[data-ds-dark-theme] .card {
 .code {
   max-height: 240px;
   margin: 0;
-  padding: 9px 11px;
+  padding: 8px 10px;
   overflow: auto;
   border-radius: 8px;
   background: var(--dsw-alias-markdown-code-block);
@@ -286,10 +257,6 @@ body[data-ds-dark-theme] .card {
   font: 12px/1.55 var(--ds-font-family-code);
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.result {
-  color: var(--dsw-alias-label-primary);
 }
 
 .more {
@@ -316,12 +283,26 @@ body[data-ds-dark-theme] .card {
 
 .progress::before {
   content: '';
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   border: 1.5px solid var(--dsw-alias-label-dimmed);
   border-top-color: var(--dsw-alias-brand-primary);
   border-radius: 50%;
   animation: toolSpin 0.8s linear infinite;
+}
+
+.images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image {
+  max-width: 320px;
+  max-height: 240px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  object-fit: contain;
 }
 
 .artifacts {
@@ -335,17 +316,6 @@ body[data-ds-dark-theme] .card {
   font-size: 12px;
 }
 
-@keyframes toolCardIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.995);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 @keyframes toolBodyIn {
   from {
     opacity: 0;
@@ -354,15 +324,6 @@ body[data-ds-dark-theme] .card {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes toolScan {
-  0% {
-    transform: translateX(-60%);
-  }
-  100% {
-    transform: translateX(60%);
   }
 }
 
@@ -376,16 +337,6 @@ body[data-ds-dark-theme] .card {
   }
 }
 
-@keyframes toolDotPulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.04);
-  }
-}
-
 @keyframes toolSpin {
   to {
     transform: rotate(360deg);
@@ -393,17 +344,9 @@ body[data-ds-dark-theme] .card {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card,
   .body,
   .pulse,
   .progress::before {
     animation: none !important;
   }
-}
-
-html[data-motion='reduced'] .card,
-html[data-motion='reduced'] .body,
-html[data-motion='reduced'] .pulse,
-html[data-motion='reduced'] .progress::before {
-  animation: none !important;
 }

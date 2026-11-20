@@ -34,6 +34,11 @@ import { ModelPicker } from './ModelPicker.js'
 import { ThinkingSlider } from './ThinkingSlider.js'
 import { ContextRing } from './ContextRing.js'
 import { AskUserPanel } from '../agent/AskUserPanel.js'
+import { ApprovalPanel } from '../agent/ApprovalPanel.js'
+import { PermissionPicker } from './PermissionPicker.js'
+import { WorkspacePicker } from './WorkspacePicker.js'
+import { PromptPicker } from './PromptPicker.js'
+import { TaskButton } from './TaskButton.js'
 import { useLiquidGlass } from '../glass/useLiquidGlass.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
@@ -119,6 +124,19 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     })
   })
 
+  /** 把一段文本插到光标处：提示词选择器与语音转写共用同一套逻辑 */
+  const insertAtCursor = (insert: string) => {
+    const textarea = textareaRef.current
+    const current = getDraft(sessionId).text
+    const start = textarea?.selectionStart ?? current.length
+    const end = textarea?.selectionEnd ?? current.length
+    setText(current.slice(0, start) + insert + current.slice(end))
+    requestAnimationFrame(() => {
+      textarea?.focus({ preventScroll: true })
+      textarea?.setSelectionRange(start + insert.length, start + insert.length)
+    })
+  }
+
   // 欢迎页导入后会话 ID 不变，不能依赖卸载取消语音；订阅开始事件也覆盖快速完成的导入。
   const cancelVoice = voice.cancel
   useEffect(
@@ -167,6 +185,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         }
       }}
     >
+      <ApprovalPanel sessionId={sessionId} />
       <AskUserPanel sessionId={sessionId} />
       <DraftAttachments items={attachments} onRetry={retryFile} onRemove={removeFile} />
       <div className={styles.textareaWrapper}>
@@ -211,6 +230,9 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         <div ref={togglesRef} className={styles.toggles}>
           <ModelPicker />
           <ThinkingSlider />
+          <PermissionPicker />
+          <WorkspacePicker />
+          <PromptPicker onInsert={insertAtCursor} />
           <Tooltip content={t('deactivatedSearchTooltip')}>
             <button
               type="button"
@@ -225,6 +247,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           </Tooltip>
         </div>
         <div className={styles.right}>
+          <TaskButton />
           <ContextRing sessionId={sessionId} streaming={streaming} />
           <VoiceButton
             status={voice.status}

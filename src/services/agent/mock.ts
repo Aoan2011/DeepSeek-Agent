@@ -49,7 +49,9 @@ const currentToolResults = (body: CreateMessageRequest): string[] => {
         out.push(
           typeof block.content === 'string'
             ? block.content
-            : block.content.map((item) => item.text).join('\n')
+            : block.content
+                .map((item) => (item.type === 'text' ? item.text : `[图片 ${item.source.media_type}]`))
+                .join('\n')
         )
       }
     }

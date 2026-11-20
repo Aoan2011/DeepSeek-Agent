@@ -28,6 +28,24 @@ def default_sandbox() -> Path:
     return Path(os.environ.get("AGENTDESK_SANDBOX", Path.home() / "AgentWorkspace")).expanduser()
 
 
+def default_workspaces() -> list[Path]:
+    """可切换的工作区：沙箱根 + AGENTDESK_WORKSPACES（用系统分隔符分隔）。"""
+    roots = [default_sandbox()]
+    extra = os.environ.get("AGENTDESK_WORKSPACES", "")
+    for item in extra.split(os.pathsep):
+        text = item.strip()
+        if text:
+            roots.append(Path(text).expanduser())
+    return roots
+
+
+def read_config() -> dict:
+    try:
+        return json.loads(config_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 def default_allowed_paths() -> list[Path]:
     """~/.skills 默认放行：Agent 需要直接读技能说明与脚本，否则一切都被关在沙箱里。"""
     custom = os.environ.get("AGENTDESK_SKILLS")
@@ -48,14 +66,30 @@ class Settings:
     mcp_config: Path | None = None
     allow_shell: bool = True
     max_output: int = 200_000
+    # 可在运行中切换的工作区；第一个是默认，切换只改沙箱根目录
+    workspaces: list[Path] = field(default_factory=default_workspaces)
+
+    def configured_workspaces(self) -> list[Path]:
+        """合并 config.json 里的 workspaces，去重并保持顺序。"""
+        roots: list[Path] = []
+        for path in [*self.workspaces, *[Path(item).expanduser() for item in read_config().get("workspaces", []) if isinstance(item, str)]]:
+            resolved = path.expanduser()
+            if resolved not in roots:
+                roots.append(resolved)
+        return roots
 
     def describe(self) -> dict:
+        current = str(self.sandbox)
         return {
             "name": "AgentDesk",
             "version": "1.0.0",
             "platform": f"{sys.platform} · Python {sys.version.split()[0]}",
-            "sandbox": str(self.sandbox),
+            "sandbox": current,
             "allowed": [str(path) for path in self.allowed_paths],
+            "workspaces": [
+                {"name": path.name or str(path), "path": str(path), "current": str(path) == current}
+                for path in self.configured_workspaces()
+            ],
             "capabilities": ["files", "shell", "python", "mcp"],
         }
 

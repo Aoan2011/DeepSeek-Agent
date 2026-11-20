@@ -13,6 +13,7 @@ import type {
   Message,
   ReplyBlock,
   ReplyStatus,
+  ToolResultPart,
   UserMessage,
 } from './types.js'
 
@@ -264,6 +265,25 @@ const toUserParam = ({ content, files }: UserMessage): MessageParam => {
       }
 }
 
+/** 工具结果里带图片时改写成「文本 + 图片」块数组，其余保持纯字符串 */
+const toResultContent = (block: ToolResultPart): ToolResultBlockParam['content'] => {
+  const text = block.content || '（无内容）'
+  if (!block.images?.length) {
+    return text
+  }
+  return [
+    { type: 'text' as const, text },
+    ...block.images.map((image) => ({
+      type: 'image' as const,
+      source: {
+        type: 'base64' as const,
+        media_type: image.mediaType,
+        data: image.data,
+      },
+    })),
+  ]
+}
+
 /**
  * 把一条 assistant 消息展开成协议轮次：正文与工具调用留在 assistant 消息里，
  * 工具结果必须紧跟其后作为 user 消息，模型才能在同一轮里继续推理。
@@ -326,7 +346,7 @@ const toAssistantTurns = (
       pendingResults.push({
         type: 'tool_result',
         tool_use_id: block.tool_use_id,
-        content: block.content || '（无内容）',
+        content: toResultContent(block),
         ...(block.isError ? { is_error: true } : {}),
       })
       continue

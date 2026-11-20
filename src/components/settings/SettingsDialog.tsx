@@ -38,7 +38,17 @@ import {
   type ThemePreference,
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
-import { IconSpark } from '../agent/ToolIcons.js'
+import { IconFolder, IconSpark } from '../agent/ToolIcons.js'
+import { PromptsSetting } from './PromptEditor.js'
+import {
+  BackgroundSetting,
+  ParallelSetting,
+  SystemPromptSetting,
+  TokenCounterSetting,
+} from './AgentSettings.js'
+import { AnimSpeedSetting, AnimTogglesSetting } from './AppearanceSettings.js'
+import { SettingCell, ToggleCell } from './SettingCell.js'
+import { WorkspaceSetting } from './WorkspaceSetting.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
@@ -60,11 +70,13 @@ export const SettingsDialog = () => {
 const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode }[] = [
   {
     value: 'general',
-    label: 'settingDialogAsideGeneralOptionLabel',
+    label: 'settingsGroupGeneral',
     icon: <IconSettingsOutline16 />,
   },
-  { value: 'agent', label: 'settingDialogAsideAgentOptionLabel', icon: <IconSpark /> },
-  { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
+  { value: 'appearance', label: 'settingsGroupAppearance', icon: <IconLightOutline16 /> },
+  { value: 'agent', label: 'settingsGroupAgent', icon: <IconSpark /> },
+  { value: 'workspace', label: 'settingsGroupWorkspace', icon: <IconFolder /> },
+  { value: 'data', label: 'settingsGroupData', icon: <IconDataOutline16 /> },
 ]
 
 const SettingsContent = () => {
@@ -113,16 +125,28 @@ const SettingsContent = () => {
               <LocaleSetting />
               <TtsVoiceSetting />
               <LocationSetting />
+            </>
+          ) : section === 'appearance' ? (
+            <>
               <MotionSetting />
+              <AnimSpeedSetting />
+              <AnimTogglesSetting />
             </>
           ) : section === 'agent' ? (
             <>
               <AgentEnabledSetting />
               <ToolApprovalSetting />
               <MaxStepsSetting />
+              <ParallelSetting />
+              <BackgroundSetting />
+              <TokenCounterSetting />
+              <SystemPromptSetting />
+              <PromptsSetting />
               <SamplingSetting />
               <MockAgentSetting />
             </>
+          ) : section === 'workspace' ? (
+            <WorkspaceSetting />
           ) : (
             <>
               <ApiKeyField editor={apiKeyEditor} />
@@ -335,26 +359,6 @@ const TtsVoiceSetting = () => {
     />
   )
 }
-
-/** 切换开关类设置的通用外壳：右侧只有一个开关 */
-const ToggleCell = ({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string
-  description?: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}) => (
-  <SettingCell
-    label={label}
-    description={description}
-    status={null}
-    action={<Switch checked={checked} label={label} onChange={onChange} />}
-  />
-)
 
 /** 工具调用总开关：关掉后退化为纯聊天 */
 const AgentEnabledSetting = () => {
@@ -646,37 +650,6 @@ const errorStatus = (key: TranslationKey, error: unknown): Status => ({
     : { params: { message: error instanceof Error ? error.message : String(error) } }),
   error: true,
 })
-
-const SettingCell = ({
-  label,
-  description,
-  status,
-  action,
-  className,
-}: {
-  label: string
-  description?: string
-  status: Status
-  action: ReactNode
-  className?: string
-}) => {
-  const t = useTranslate()
-  return (
-    <div className={clsx(styles.cell, styles.row, className)}>
-      <div className={styles.text}>
-        <div className={styles.label}>{label}</div>
-        {status || description ? (
-          <div className={clsx(styles.description, status?.error && styles.error)}>
-            {status
-              ? t(status.key, status.reason ? { message: t(status.reason) } : status.params)
-              : description}
-          </div>
-        ) : null}
-      </div>
-      {action}
-    </div>
-  )
-}
 
 /** 选文件后先提示覆盖；确认后才检查文件并执行导入，任何错误都提示导入失败。 */
 const useHistoryImport = () => {

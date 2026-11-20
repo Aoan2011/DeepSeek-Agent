@@ -63,12 +63,21 @@ export type ArtifactMeta = {
   tool?: string
 }
 
-/** 工具执行结果：content 回传模型，artifacts/meta 只用于界面 */
+/** 工具产出的内联图片，base64 回传给模型并可直接在界面渲染 */
+export type ToolImage = {
+  mediaType: string
+  /** 不带 data: 前缀的 base64 */
+  data: string
+  name?: string
+}
+
+/** 工具执行结果：content 回传模型，artifacts/meta 只用于界面，images 会进入上下文 */
 export type ToolResult = {
   content: string
   isError?: boolean
   artifacts?: ArtifactMeta[]
   meta?: Record<string, unknown>
+  images?: ToolImage[]
 }
 
 /** 工具执行上下文 */

@@ -2,6 +2,7 @@ import { registerTools, unregisterBySource } from './registry.js'
 import type { RegisteredTool, ToolContext } from './types.js'
 import { bool, clip, fail, num, objectSchema, ok, str } from './toolKit.js'
 import { createArtifact } from './artifacts.js'
+import { downscaleImage, splitDataUrl } from '../../utils/imageData.js'
 
 /**
  * 网页与 Chrome 扩展的通信桥：
@@ -295,9 +296,18 @@ const extensionTools = (): RegisteredTool[] => [
           tool: 'browser_screenshot',
           sessionId: context.sessionId,
         })
+        // 截图同时回传给模型：先缩到模型能接受的长边，再以 base64 图片块放进工具结果，
+        // 否则模型只能看到「截了一张图」这句话，看不到画面内容。
+        const payload = splitDataUrl(data.dataUrl)
+        const scaled = payload ? await downscaleImage(payload, 1568) : null
         return ok(
           `已截取${data.full ? '整页' : '当前可视区域'}（${data.width}×${data.height}）`,
-          { artifacts: [artifact] }
+          {
+            artifacts: [artifact],
+            ...(scaled
+              ? { images: [{ mediaType: scaled.mediaType, data: scaled.data, name: artifact.name }] }
+              : {}),
+          }
         )
       } catch (error) {
         return fail(error instanceof Error ? error.message : String(error))

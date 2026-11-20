@@ -4,17 +4,12 @@ import { widgetTools } from './tools/widgetTools.js'
 import { agentTools } from './tools/agentTools.js'
 import { askUserTools } from './tools/askUserTool.js'
 import { workspaceTools } from './tools/workspaceTools.js'
+import { customToolTools, registerCustomTools } from './tools/customTools.js'
 import { initExtensionBridge } from './extension.js'
 import { initDesktop } from './desktop/store.js'
 import { connectEnabledServers } from './mcp/store.js'
-import { useSettings } from '../settings.js'
 
 let started = false
-
-/** 把动效偏好写到根节点，CSS 据此关闭装饰性动画 */
-const applyMotion = (motion: 'full' | 'reduced') => {
-  document.documentElement.dataset.motion = motion
-}
 
 /**
  * 初始化 agent 能力：内置工具、扩展桥、桌面连接、MCP 服务器。
@@ -25,14 +20,17 @@ export const initAgent = () => {
     return
   }
   started = true
-  registerTools([...browserTools, ...widgetTools, ...agentTools, ...askUserTools, ...workspaceTools])
+  registerTools([
+    ...browserTools,
+    ...widgetTools,
+    ...agentTools,
+    ...askUserTools,
+    ...workspaceTools,
+    ...customToolTools,
+  ])
+  // 上次创建的组合工具跟着回来
+  registerCustomTools()
   initExtensionBridge()
   initDesktop()
   void connectEnabledServers()
-  applyMotion(useSettings.getState().motion)
-  useSettings.subscribe((state, previous) => {
-    if (state.motion !== previous.motion) {
-      applyMotion(state.motion)
-    }
-  })
 }

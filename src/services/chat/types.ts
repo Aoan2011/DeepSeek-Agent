@@ -22,6 +22,8 @@ import type {
 export type FileAttachment = {
   id: string
   serverId: string | null
+  /** 当前 serverId 对应的上传图片已确认符合长边限制。旧记录缺少此字段。 */
+  imageSizeChecked?: boolean
   name: string
   size: number
   /** 附件类别；导入时沿用归档的 is_image，不由 MIME 识别结果决定。 */
@@ -94,6 +96,10 @@ export type ToolCallPart = {
   /** 工具展示名与风险，历史回放时不依赖注册表 */
   label?: string
   risk?: 'safe' | 'write' | 'exec' | 'network'
+  /** 已转入后台：前台不再等它，结果在任务面板里 */
+  detached?: boolean
+  /** 对应的后台任务 id，界面据此提供「后台运行」与状态跳转 */
+  taskId?: string
 }
 
 /** 工具结果：同时用于回传模型与界面展示 */
@@ -104,6 +110,18 @@ export type ToolResultPart = {
   isError?: boolean
   artifacts?: ArtifactMeta[]
   durationMs?: number
+  /** 工具自带的展示用元数据（改动行数、预览文件、任务 id 等），不进入模型上下文 */
+  meta?: Record<string, unknown>
+  /** 工具产出的图片附件，回传给模型时转成 image 内容块 */
+  images?: ToolImage[]
+}
+
+/** 工具产生的内联图片：base64 回传，界面可直接渲染 */
+export type ToolImage = {
+  mediaType: string
+  /** 不带 data: 前缀的 base64 */
+  data: string
+  name?: string
 }
 
 /**

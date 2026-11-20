@@ -47,6 +47,7 @@
       .trim()
 
   const getPage = ({ max_chars = 12000 } = {}) => {
+    pingOverlay()
     const root = pickRoot()
     const full = clean(root?.innerText || document.body?.innerText || '')
     const limit = Math.max(500, Math.min(Number(max_chars) || 12000, MAX_TEXT))
@@ -111,9 +112,11 @@
     if (!node) {
       throw new Error('没有找到要点击的元素，请换一个选择器或文字')
     }
+    pingOverlay()
     node.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' })
     await delay(120)
     const rect = node.getBoundingClientRect()
+    moveCursor(rect.left + rect.width / 2, rect.top + rect.height / 2, true)
     const options = {
       bubbles: true,
       cancelable: true,
@@ -151,8 +154,11 @@
     if (!(node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node.isContentEditable)) {
       throw new Error(`目标元素不可输入：${describe(node)}`)
     }
+    pingOverlay()
     node.focus()
     node.scrollIntoView({ block: 'center', behavior: 'instant' })
+    const box = node.getBoundingClientRect()
+    moveCursor(box.left + Math.min(box.width / 2, 120), box.top + box.height / 2)
     if (node.isContentEditable) {
       const selection = window.getSelection()
       const range = document.createRange()
@@ -186,6 +192,7 @@
   }
 
   const scroll = async ({ direction = 'down', amount }) => {
+    pingOverlay()
     const step = Number(amount) || Math.round(window.innerHeight * 0.85)
     if (direction === 'top') {
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -204,6 +211,7 @@
   }
 
   const extract = ({ selector, attribute, limit = 50 }) => {
+    pingOverlay()
     const nodes = [...document.querySelectorAll(selector)].slice(0, Math.max(1, Number(limit) || 50))
     if (!nodes.length) {
       throw new Error(`选择器没有匹配到元素：${selector}`)
@@ -255,6 +263,193 @@
     const size = { width: fullShot.canvas.width, height: fullShot.canvas.height }
     fullShot = null
     return { dataUrl: url, ...size }
+  }
+
+
+  // ---------- 操作指示层 ----------
+  // 扩展在页面上操作时给出可见反馈：四周跑马灯 + 跟随的大号光标。
+  // 全部用 CSSOM（element.style）设置，避免被站点 CSP 拦掉内联样式。
+
+  const OVERLAY_Z = 2147483646
+  let overlay = null
+  let overlayTimer = 0
+  let marqueeFrame = 0
+
+  const styleOf = (el, rules) => {
+    Object.assign(el.style, rules)
+    return el
+  }
+
+  const createCursor = () => {
+    const wrap = styleOf(document.createElement('div'), {
+      position: 'fixed',
+      left: '0',
+      top: '0',
+      width: '0',
+      height: '0',
+      zIndex: String(OVERLAY_Z),
+      pointerEvents: 'none',
+      transform: 'translate3d(-9999px, -9999px, 0)',
+      transition: 'transform .32s cubic-bezier(.22,1,.36,1)',
+      willChange: 'transform',
+      filter: 'drop-shadow(0 4px 10px rgba(20,40,90,.35))',
+    })
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('viewBox', '0 0 24 24')
+    svg.setAttribute('width', '34')
+    svg.setAttribute('height', '34')
+    styleOf(svg, { display: 'block', marginLeft: '-4px', marginTop: '-2px' })
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute(
+      'd',
+      'M4 2.2 4 19.4 8.6 15.1 11.4 21.4 14.5 20 11.7 13.8 18 13.4 4 2.2Z'
+    )
+    path.setAttribute('fill', '#3964fe')
+    path.setAttribute('stroke', '#fff')
+    path.setAttribute('strokeWidth', '1.4')
+    path.setAttribute('strokeLinejoin', 'round')
+    svg.append(path)
+    wrap.append(svg)
+    return wrap
+  }
+
+  const createMarquee = () => {
+    const ring = styleOf(document.createElement('div'), {
+      position: 'fixed',
+      inset: '0',
+      zIndex: String(OVERLAY_Z),
+      pointerEvents: 'none',
+      border: '2px solid rgba(57,100,254,.45)',
+      boxShadow: 'inset 0 0 26px rgba(57,100,254,.22)',
+      borderRadius: '2px',
+    })
+    const comets = []
+    for (let index = 0; index < 4; index += 1) {
+      const comet = styleOf(document.createElement('div'), {
+        position: 'fixed',
+        pointerEvents: 'none',
+        zIndex: String(OVERLAY_Z + 1),
+        background: 'linear-gradient(90deg, rgba(57,100,254,0) 0%, #3964fe 55%, #8fd3ff 100%)',
+        borderRadius: '2px',
+        willChange: 'transform',
+      })
+      if (index % 2 === 0) {
+        comet.style.width = '160px'
+        comet.style.height = '3px'
+        comet.style.top = index === 0 ? '0' : 'calc(100% - 3px)'
+        comet.style.left = '0'
+      } else {
+        comet.style.width = '3px'
+        comet.style.height = '160px'
+        comet.style.left = index === 1 ? 'calc(100% - 3px)' : '0'
+        comet.style.top = '0'
+        comet.style.background =
+          'linear-gradient(180deg, rgba(57,100,254,0) 0%, #3964fe 55%, #8fd3ff 100%)'
+      }
+      ring.append(comet)
+      comets.push(comet)
+    }
+    return { ring, comets }
+  }
+
+  /** 四条光带沿边框循环，用 rAF 驱动，不依赖站点样式表 */
+  const startMarquee = (comets) => {
+    if (marqueeFrame) {
+      return
+    }
+    const started = performance.now()
+    const tick = (now) => {
+      if (!overlay) {
+        return
+      }
+      const width = window.innerWidth
+      const height = window.innerHeight
+      const period = 2600
+      const t = ((now - started) % period) / period
+      const x = t * (width + 160) - 160
+      const y = t * (height + 160) - 160
+      comets[0].style.transform = `translate3d(${x}px, 0, 0)`
+      comets[1].style.transform = `translate3d(0, ${y}px, 0)`
+      comets[2].style.transform = `translate3d(${-x}px, 0, 0)`
+      comets[3].style.transform = `translate3d(0, ${-y}px, 0)`
+      marqueeFrame = requestAnimationFrame(tick)
+    }
+    marqueeFrame = requestAnimationFrame(tick)
+  }
+
+  const ensureOverlay = () => {
+    if (overlay) {
+      return overlay
+    }
+    const root = styleOf(document.createElement('div'), {
+      position: 'fixed',
+      inset: '0',
+      zIndex: String(OVERLAY_Z),
+      pointerEvents: 'none',
+      contain: 'layout style',
+    })
+    const { ring, comets } = createMarquee()
+    const cursor = createCursor()
+    root.append(ring, cursor)
+    document.documentElement.append(root)
+    overlay = { root, cursor }
+    startMarquee(comets)
+    return overlay
+  }
+
+  const hideOverlay = () => {
+    if (marqueeFrame) {
+      cancelAnimationFrame(marqueeFrame)
+      marqueeFrame = 0
+    }
+    overlay?.root.remove()
+    overlay = null
+  }
+
+  /** 每次页面操作刷新一次存活时间；一串操作结束后自动收起 */
+  const pingOverlay = () => {
+    ensureOverlay()
+    clearTimeout(overlayTimer)
+    overlayTimer = window.setTimeout(() => {
+      // 光标淡出后再整层移除，避免突然消失
+      if (overlay) {
+        overlay.cursor.style.opacity = '0'
+      }
+      overlayTimer = window.setTimeout(hideOverlay, 260)
+    }, 2200)
+  }
+
+  /** 把大号光标移到页面坐标上，附带一次点击涟漪 */
+  const moveCursor = (x, y, ripple = false) => {
+    const current = ensureOverlay()
+    current.cursor.style.opacity = '1'
+    current.cursor.style.transform = `translate3d(${x}px, ${y}px, 0)`
+    if (!ripple) {
+      return
+    }
+    const dot = styleOf(document.createElement('div'), {
+      position: 'fixed',
+      left: '0',
+      top: '0',
+      width: '46px',
+      height: '46px',
+      marginLeft: '-23px',
+      marginTop: '-23px',
+      borderRadius: '50%',
+      border: '2px solid rgba(57,100,254,.85)',
+      background: 'rgba(57,100,254,.16)',
+      zIndex: String(OVERLAY_Z),
+      pointerEvents: 'none',
+      transform: `translate3d(${x}px, ${y}px, 0) scale(.35)`,
+      opacity: '1',
+      transition: 'transform .42s ease-out, opacity .42s ease-out',
+    })
+    document.documentElement.append(dot)
+    requestAnimationFrame(() => {
+      dot.style.transform = `translate3d(${x}px, ${y}px, 0) scale(1)`
+      dot.style.opacity = '0'
+    })
+    window.setTimeout(() => dot.remove(), 460)
   }
 
   // ---------- 消息分发 ----------

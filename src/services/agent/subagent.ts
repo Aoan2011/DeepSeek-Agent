@@ -151,7 +151,8 @@ export const runSubagent = async (input: SubagentInput): Promise<SubagentResult>
     input.onProgress(`子 Agent 第 ${round} 轮推理`)
     const body: CreateMessageRequest = {
       model: SUBAGENT_MODEL,
-      system: SYSTEM_PROMPT,
+      // 主对话的自定义提示词同样影响子 Agent，保证输出风格一致
+      system: `${SYSTEM_PROMPT}\n\n${settings.systemPrompt.trim()}`.trim(),
       messages,
       thinking: { type: 'disabled' },
       // 子 Agent 沿用主对话的采样参数，保持输出风格一致

@@ -2,17 +2,13 @@
 
 English | [简体中文](README.md)
 
-An agentic fork of [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo): tool calling, in-browser tools, MCP servers, a Python desktop bridge, a Chrome extension, and a workspace with branch-aware Monaco diffs — on top of the original interface and design system.
+An agentic fork of [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo). The chat UI and design system come from upstream; on top of it this fork adds a full tool-calling loop, a Python desktop bridge, a Chrome extension bridge, MCP servers, multi-workspace diffs, background tasks and subagents.
 
-> The Chinese [README.md](README.md) is the primary document and includes setup, deployment, security notes and screenshots. This file only keeps the upstream description of the base app.
-
-A static chat demo powered by the DeepSeek API. No application backend is required: the browser connects directly to the configured API service.
-
-Enter your API key in Settings before your first chat.
+No application backend is required: the browser talks to the configured API service directly. Enter your API key in Settings before the first chat.
 
 ## Getting started
 
-Install Node.js 22.12+ and pnpm, then run:
+Requires Node.js 22.12+ and pnpm.
 
 ```sh
 git clone https://github.com/aoan2011/DeepSeek-Agent.git
@@ -21,70 +17,172 @@ pnpm install
 pnpm dev
 ```
 
-Open http://localhost:8090.
-
-To build the static site:
+Open http://localhost:8090. To build the static site:
 
 ```sh
 pnpm build
 ```
 
-The output is written to `dist/`. It is deployed to https://aoan2011.github.io/DeepSeek-Agent/ by the bundled Pages workflow; relative asset paths mean it also works from a root domain or `file://`. Opening the file directly requires browser support for storage on `file://` pages and an API service that permits their cross-origin requests.
+Output goes to `dist/`. The bundled Pages workflow publishes it to GitHub Pages; relative asset paths mean it also works from a custom root or `file://`.
+
+## Desktop bridge (optional)
+
+The desktop bridge lets the agent use your machine: files, shell, Python, screen, mouse and keyboard, plus local stdio MCP servers.
+
+```sh
+cd desktop
+pip install -r requirements.txt
+python -m agentdesk
+```
+
+Then open the agent panel → **Desktop** in the web UI and connect with the printed URL and token. Every destructive tool asks for approval first; commands that are obviously irreversible are blocked even after approval.
+
+Available tools (23 in total):
+
+| Group | Tools |
+| --- | --- |
+| Files | `fs_read` `fs_list` `fs_stat` `fs_write` `fs_delete` `fs_move` |
+| Execution | `shell_exec` `python_exec` |
+| System | `system_info` `process_list` `text_stats` |
+| Screen | `screen_capture` `mouse` `keyboard` `window` |
+| Data | `hash` `grep` `archive` `json_query` `clipboard` |
+| Network | `net_probe` |
+| Git | `git` (read-only: status / log / diff / branch / show) |
+| Workspace | `workspace` (list / switch between configured roots) |
+
+Every command runs inside a sandbox directory (`~/AgentWorkspace` by default). Paths are resolved and checked, so `..` and absolute escapes are rejected; `~/.skills` is allow-listed read-only.
+
+Multiple desktop workspaces are supported: list extra roots in `~/.agentdesk/config.json` (`{"workspaces": ["/path/a", "/path/b"]}`) or in `AGENTDESK_WORKSPACES`, then pick one from the composer's workspace selector (or let the agent call `desk_workspace`).
+
+## Browser extension (optional)
+
+`extension/` is a Manifest V3 extension that gives the agent control of a real tab: read the page, click, type, scroll, extract, screenshot, manage tabs and navigate.
+
+While the agent works on a page it draws a marquee along the viewport edges and a large cursor that follows the target element, so you can see what is being clicked. Screenshots are downscaled and sent back to the model as real image blocks instead of just a text note.
+
+Load it via `chrome://extensions` → Developer mode → Load unpacked → `extension/`. A packaged build is in `dist-ext/`.
 
 ## Features
 
-- Multiple conversations with automatic titles, renaming, and deletion; edit prompts, regenerate replies, and switch between message branches.
-- Streaming replies, deep thinking, smart search, link reading, and source citations; stop generation or continue eligible replies.
-- Upload, paste, or drag and drop attachments; use voice input and read replies aloud. A live audio spectrum appears in the first row of the input area while recording on mobile.
-- Markdown, syntax highlighting, KaTeX math, and Mermaid diagrams.
-- Markdown extensions: `==text==` / `==red:text==` color highlights, `~wavy~` underlines, and GitHub-style `> [!IMPORTANT]` alerts.
-- Workspace panel (`Ctrl/Cmd + Shift + E`): file tree of changes, branch switcher backed by `.git`, and a lazily loaded Monaco diff editor with red deletions and green additions.
-- Workspace tools for the agent: list, read, write (approval required) and diff files; changes show up in the panel immediately.
-- Live stats bar under the composer: input/output tokens, first-token latency, cache hit rate, throughput and elapsed time, refreshed every second with a blur-and-bounce number transition.
-- Streaming characters rise from slightly below with a heavy blur and settle with a small bounce; CJK animates per character, Latin per word.
-- Model picker with remote `/models` discovery (cached for an hour) and a built-in fallback when the API is unreachable.
-- Thinking intensity slider with five levels that sends real `reasoning_effort` and `thinking.budget_tokens`, plus a quota warning at the maximum level.
-- Agent tools: in-browser tools, remote MCP servers, a Python desktop bridge with sandboxed file/shell/python plus screen, mouse and keyboard control, and a Chrome extension.
-- Subagents via `spawn_subagent`: independent context, read-only tools by default, only the conclusion comes back.
-- Questions via `ask_user`: the model pauses and asks above the composer with options or free text; the answer returns as a `tool_result` and the same turn continues.
-- Widgets via `show_widget`: the model can render an interactive HTML card inline, sandboxed in an iframe.
-- Simplified Chinese and English, light and dark themes, mobile layouts, location settings, and chat history import and export.
+### Conversation
+
+- Multiple conversations with automatic titles, renaming and deletion; edit prompts, regenerate replies, switch between branches.
+- Streaming replies, deep thinking, smart search, link reading, source citations; stop or continue eligible replies.
+- Attachments by upload / paste / drag-and-drop, voice input, read-aloud, mobile audio spectrum.
+- Markdown, syntax highlighting, KaTeX, Mermaid; `==highlight==`, `~wavy~`, `> [!IMPORTANT]` alerts.
+- Simplified Chinese and English, light and dark themes, mobile layouts, history import/export.
+
+### Tool calling
+
+- **Compact tool rows.** Each call is a single line — icon, the purpose the model wrote for it, status and duration — matching the search-step rows instead of a separate card. Click to expand arguments and output.
+- **Inline diffs.** File edits show `+N / −M` and open the workspace diff for that exact file when clicked.
+- **Parallel execution.** Up to 8 tools per round (configurable). Approvals are still requested one at a time so the confirmation panel never stacks.
+- **Background tasks.** Long-running tools move to the task panel (manually, or automatically after 20 s). Chat is not blocked; the panel shows live progress, lets you cancel, inspect the output and hand the result back to the agent.
+- **Subagents** via `spawn_subagent`: independent context, read-only tools by default, only the conclusion returns — and they show up in the task panel too.
+- **Agent-built tools** via `create_tool`: the model composes existing tools into a new named tool (no generated code), which is registered and reusable. `delete_tool` removes it.
+- **Inline previews** via `preview_file`: code, Markdown, HTML pages, images and CSV are rendered in a widget at the bottom of the answer.
+- **Image reading** via `view_image`: base64 data URLs, artifact ids or remote URLs are downscaled and sent to the model as image blocks.
+- **Questions** via `ask_user`, **widgets** via `show_widget` (sandboxed iframe).
+
+### Permissions
+
+- The approval mode lives in the composer (`Default permission` / `Full access`) instead of a settings page, so the current mode is always visible before sending.
+- Confirmation requests appear **above the composer**, in the same place as agent questions, instead of a modal over the middle of the screen.
+- When the page is in the background, a system notification and a `●` title badge tell you that the agent is waiting.
+
+### Workspaces
+
+- Multiple workspaces: the built-in demo repo plus any number of local folders (handles persisted in IndexedDB, permissions re-checked on reload).
+- Pick the active workspace from the composer; all workspace tools operate on that one.
+- File tree of changes, branch switcher, Monaco diff editor, and `Ctrl/Cmd + Shift + E` to open the panel.
+
+### Stats and token counting
+
+- The bottom bar refreshes exactly once per second. It subscribes only to the run's `active` / `session` / `model` slices, so streaming tokens no longer re-render the whole bar.
+- Draft token count while typing, with a 220 ms debounce.
+- Optional **exact** counting using the real DeepSeek vocabulary (BPE, from `tokenizer.json`), loaded lazily as a separate 1.5 MB asset; the app falls back to a calibrated estimate when the asset is unavailable (`file://`).
+
+### Performance and motion
+
+- Settings → **Appearance & motion**: global intensity, animation speed multiplier, and per-feature toggles (aurora, shimmer, transitions, running pulse).
+- Reduced motion is honoured from the OS as well; `html[data-motion]` and the `--ds-anim-scale` variable drive every animation.
+
+## Settings layout
+
+| Group | Contents |
+| --- | --- |
+| General | Theme, language, read-aloud voice, location |
+| Appearance & motion | Motion intensity, animation speed, per-effect toggles |
+| Agent | Tool toggle, approval default, max steps, parallel tools, background tasks, token counting, custom system prompt, custom prompts, sampling, demo mode |
+| Workspaces | List, refresh and remove workspaces |
+| Data | API key, import, export, delete everything |
 
 ## Data and storage
 
-Your API key and settings are stored in the browser's localStorage. Conversations and original attachments are stored in IndexedDB. Local data is isolated by browser profile and site origin. Sending messages, uploading attachments, and using speech features sends the relevant content to the configured API service.
+API key and settings live in `localStorage`; conversations, original attachments and artifacts live in `IndexedDB`. Everything is isolated per browser profile and origin. Sending messages, uploading attachments and using speech send the relevant content to the configured API service.
 
-History import and export in Settings use ZIP archives. After confirmation and successful validation, importing replaces all local conversations and attachments. Exports include conversations and locally available original images, but exclude API keys, settings, and original non-image attachments. See the [history import/export documentation (Chinese)](src/services/chat/history/README.md) for the archive format and preservation details.
-
-Settings → Data → Delete all chats clears all local conversations, original attachments, and unsent drafts after confirmation. It stops ongoing replies and returns to a new chat. Your API key and settings are preserved; files already uploaded to the API service are not deleted.
+History import/export uses ZIP archives. Import replaces all local conversations after confirmation. See [history import/export](src/services/chat/history/README.md) for the archive format.
 
 ## Development
 
-| Command       | Description                  |
-| ------------- | ---------------------------- |
-| `pnpm dev`    | Start the development server |
-| `pnpm build`  | Build into `dist/`           |
-| `pnpm type`   | Run TypeScript type checks   |
-| `pnpm lint`   | Lint with oxlint             |
-| `pnpm format` | Format with oxfmt            |
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Development server |
+| `pnpm build` | Build into `dist/` |
+| `pnpm type` | TypeScript checks |
+| `pnpm lint` | oxlint |
+| `pnpm format` | oxfmt |
 
-[rspack.config.ts](rspack.config.ts) uses `https://api.deepseek.com` by default. Use `createConfig({ apiOrigin, devServer })` to customize the API origin and development server proxy.
+Desktop tests:
 
-Chat uses `deepseek-flash` by default through Anthropic-compatible Messages / Files APIs. Speech features use ASR / TTS endpoints. Requests include extensions for search, link reading, titles, and `latest_reminder`, so the configured service must support the corresponding capabilities. Supported attachment formats are determined by server-side validation.
+```sh
+cd desktop
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest -q
+```
+
+`scripts/build-tokenizer.mjs` regenerates `src/services/tokenizer/dsv4-merges.txt` from a DeepSeek `tokenizer.json`:
+
+```sh
+node scripts/build-tokenizer.mjs /path/to/tokenizer.json
+```
+
+### CI
+
+`.github/workflows/ci.yml` runs three jobs:
+
+1. **web** — typecheck, lint and build on Ubuntu.
+2. **desktop** — `pytest` on Ubuntu / macOS / Windows × Python 3.9 / 3.11 / 3.13, plus an import smoke test.
+3. **tokenizer** — asserts the vocabulary asset is committed and non-empty.
+
+### Layout
 
 ```text
 src/
-  app/                 Application layout, themes, and global styles
-  components/          Chat, settings, Markdown, and other UI components
-  i18n/                English and Chinese translations
+  app/                  Layout, theme, motion setup
+  components/
+    agent/              Tool rows, approval panel, task panel, previews, artifacts
+    chatInput/          Composer, pickers (model / permission / workspace / prompts), stats bar
+    workspace/          Workspace panel, diff viewer, file tree
   services/
-    api/               API requests, SSE, and protocol types
-    chat/              Conversations, message branches, storage, and history import/export
-    markdown/          Markdown parsing, syntax highlighting, and diagrams
-    speech/            Audio recording and read-aloud playback
-  utils/               Shared utilities
+    agent/              Tool registry, runtime, tasks, subagents, tools/*
+    chat/               Conversations, branches, storage, history
+    tokenizer/          BPE tokenizer for exact token counting
+    workspace/          Multi-workspace store, git info, local FS access
+  utils/                Shared helpers (URL checks, image data, image resizing)
+desktop/agentdesk/      Python desktop bridge (tools, sandbox, server, TUI)
+extension/              MV3 browser extension
+scripts/                Build helpers
 ```
+
+## Upstream sync
+
+This fork cannot merge upstream directly, so relevant fixes are ported by hand:
+
+- `4ee2972` — attachment previews are chosen by filename extension; links from the server are restricted to HTTP(S) (`isWebUrl`).
+- `b53b77f` — oversized images are downscaled before they are reused as Files API attachments (`imageSizeChecked`).
+- `429af5a` / `8ad7b56` — version bumps only, not applicable.
 
 ## License
 
-[MIT](LICENSE). The build copies the license to `dist/LICENSE`; include it when distributing the app. Third-party dependencies are subject to their own licenses.
+[MIT](LICENSE). The build copies the license to `dist/LICENSE`; include it when distributing. Third-party dependencies keep their own licenses.

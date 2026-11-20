@@ -168,6 +168,18 @@ export const toolIcon = (name: string, source?: ToolSource) => {
       return <IconGlobe />
     case 'show_widget':
       return <IconSpark />
+    case 'preview_file':
+      return <IconLayers />
+    case 'view_image':
+      return <IconEye />
+    case 'workspace_write_file':
+      return <IconPen />
+    case 'create_tool':
+    case 'run_tool_chain':
+      return <IconBolt />
+    case 'browser_screenshot':
+    case 'desk_screenshot':
+      return <IconCamera />
     case 'spawn_subagent':
       return <IconSpark />
     default:
@@ -199,3 +211,37 @@ export const toolIcon = (name: string, source?: ToolSource) => {
       return <IconSpark />
   }
 }
+
+export const IconPen = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M2.8 13.2h2.6L12.8 5.8a1.6 1.6 0 0 0 0-2.2l-.4-.4a1.6 1.6 0 0 0-2.2 0L2.8 10.6v2.6Z" />
+    <path d="M9.4 4.6l2 2" />
+  </svg>
+)
+
+export const IconEye = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M1.6 8S3.9 4 8 4s6.4 4 6.4 4-2.3 4-6.4 4S1.6 8 1.6 8Z" />
+    <circle cx="8" cy="8" r="1.7" />
+  </svg>
+)
+
+export const IconLayers = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M8 2 14 5.2 8 8.4 2 5.2 8 2Z" />
+    <path d="M2 8.4 8 11.6l6-3.2M2 11.4 8 14.6l6-3.2" />
+  </svg>
+)
+
+export const IconBolt = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M9 1.8 3.6 9h3.6l-.6 5.2L12.4 7H8.8l.2-5.2Z" />
+  </svg>
+)
+
+export const IconCamera = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M2 5.6c0-.7.5-1.2 1.2-1.2h1.6l.8-1.2h4.8l.8 1.2h1.6c.7 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H3.2A1.2 1.2 0 0 1 2 11.2V5.6Z" />
+    <circle cx="8" cy="8.2" r="2.2" />
+  </svg>
+)

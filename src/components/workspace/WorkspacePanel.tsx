@@ -26,7 +26,11 @@ import {
 import { canPickDirectory } from '../../services/workspace/local.js'
 import { DiffViewer } from './DiffViewer.js'
 import { buildFileTree, type FileNode } from './fileTree.js'
-import { closeWorkspacePanel, useWorkspacePanel } from './workspacePanelState.js'
+import {
+  closeWorkspacePanel,
+  consumeWorkspaceFocus,
+  useWorkspacePanel,
+} from './workspacePanelState.js'
 import styles from './WorkspacePanel.module.css'
 
 const statusLabel = (status?: string) => {
@@ -113,6 +117,7 @@ const TreeRow = ({
 export const WorkspacePanel = () => {
   const t = useTranslate()
   const open = useWorkspacePanel((state) => state.open)
+  const focusPath = useWorkspacePanel((state) => state.focusPath)
   const source = useWorkspace((state) => state.source)
   const name = useWorkspace((state) => state.name)
   const root = useWorkspace((state) => state.root)
@@ -150,9 +155,18 @@ export const WorkspacePanel = () => {
     [selected, base, files]
   )
 
+  // 工具卡片点了某个文件的改动行数：直接定位，随后清掉一次性请求
+  useEffect(() => {
+    if (!open || !focusPath) {
+      return
+    }
+    setSelected(focusPath)
+    consumeWorkspaceFocus()
+  }, [open, focusPath])
+
   // 当前选中文件不在变更里时，自动落到第一个变更
   useEffect(() => {
-    if (!open) {
+    if (!open || focusPath) {
       return
     }
     if (selected && stats.has(selected)) {
@@ -160,7 +174,7 @@ export const WorkspacePanel = () => {
     }
     const balanced = changes.find((item) => item.additions > 0 && item.deletions > 0)
     setSelected(balanced?.path ?? changes[0]?.path ?? null)
-  }, [open, selected, stats, changes])
+  }, [open, selected, stats, changes, focusPath])
 
   useEffect(() => {
     if (!branchOpen) {

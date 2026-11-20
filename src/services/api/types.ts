@@ -161,11 +161,19 @@ export type AssistantBlockParam =
   /** 客户端工具调用原样回传，模型据此衔接后续参数 */
   | ToolUseBlock
 
-/** 工具结果必须以 user 消息回传，content 支持字符串或文本块数组 */
+/** 工具结果里的内联图片：base64 直接下发，不需要先上传 */
+export type Base64ImageParam = {
+  type: 'image'
+  source: { type: 'base64'; media_type: string; data: string }
+}
+
+export type ToolResultContentParam = { type: 'text'; text: string } | Base64ImageParam
+
+/** 工具结果必须以 user 消息回传，content 支持字符串或「文本 + 图片」块数组 */
 export type ToolResultBlockParam = {
   type: 'tool_result'
   tool_use_id: string
-  content: string | { type: 'text'; text: string }[]
+  content: string | ToolResultContentParam[]
   is_error?: boolean
 }
 

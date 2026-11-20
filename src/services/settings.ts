@@ -4,6 +4,28 @@ import { normalizeLocation, type UserLocation } from './location.js'
 
 export type Locale = 'zh-CN' | 'en-US'
 
+/** 逐项动效开关：关掉哪一项就少一类动画，便于在低配机器上只保留必要反馈 */
+export type AnimSettings = {
+  /** 背景极光光斑 */
+  aurora: boolean
+  /** 标题与状态文字的流光 */
+  shimmer: boolean
+  /** 面板、卡片、弹层的过渡 */
+  transitions: boolean
+  /** 工具执行的扫描线与脉冲 */
+  pulse: boolean
+}
+
+export const DEFAULT_ANIM: AnimSettings = {
+  aurora: true,
+  shimmer: true,
+  transitions: true,
+  pulse: true,
+}
+
+/** 底部状态条 token 的统计方式：fast 用字符权重估算，exact 用 DeepSeek BPE 词表精确切分 */
+export type TokenCounterMode = 'fast' | 'exact'
+
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
 
@@ -37,6 +59,18 @@ type Settings = {
   mockAgent: boolean
   /** 动画特效强度：full 完整，reduced 仅保留必要过渡 */
   motion: 'full' | 'reduced'
+  /** 逐项动效开关，叠加在 motion 之上 */
+  anim: AnimSettings
+  /** 动画时长倍率：0.5 更快，2 更慢 */
+  animSpeed: number
+  /** token 统计方式 */
+  tokenCounter: TokenCounterMode
+  /** 一轮里最多同时执行多少个工具；1 表示顺序执行 */
+  parallelTools: number
+  /** 长耗时工具自动转入后台任务列表，对话不被阻塞 */
+  backgroundTools: boolean
+  /** 用户追加的系统提示词，拼在服务端提示之后 */
+  systemPrompt: string
 }
 
 const KEYS = {
@@ -58,6 +92,12 @@ const KEYS = {
   topP: 'chat-agent:top-p',
   mockAgent: 'chat-agent:mock-agent',
   motion: 'chat-agent:motion',
+  anim: 'chat-agent:anim',
+  animSpeed: 'chat-agent:anim-speed',
+  tokenCounter: 'chat-agent:token-counter',
+  parallelTools: 'chat-agent:parallel-tools',
+  backgroundTools: 'chat-agent:background-tools',
+  systemPrompt: 'chat-agent:system-prompt',
 } as const
 
 const read = (key: string) => {
@@ -184,7 +224,54 @@ export const useSettings = create<Settings>(() => ({
   topP: readOptional(KEYS.topP, MIN_TOP_P, MAX_TOP_P),
   mockAgent: read(KEYS.mockAgent) === 'true',
   motion: read(KEYS.motion) === 'reduced' ? 'reduced' : 'full',
+  anim: readAnim(),
+  animSpeed: readAnimSpeed(),
+  // 精确词表 1.5MB，默认走估算，需要时在设置里切换
+  tokenCounter: read(KEYS.tokenCounter) === 'exact' ? 'exact' : 'fast',
+  parallelTools: clampParallel(Number(read(KEYS.parallelTools) ?? 4)),
+  // 默认开启：长任务在后台跑，界面不被占住
+  backgroundTools: read(KEYS.backgroundTools) !== 'false',
+  systemPrompt: read(KEYS.systemPrompt) ?? '',
 }))
+
+/** 缺字段时按默认补齐，新增开关对老用户默认打开 */
+function readAnim(): AnimSettings {
+  try {
+    const saved = JSON.parse(read(KEYS.anim) ?? 'null') as Partial<AnimSettings> | null
+    if (!saved || typeof saved !== 'object') {
+      return DEFAULT_ANIM
+    }
+    return {
+      aurora: saved.aurora !== false,
+      shimmer: saved.shimmer !== false,
+      transitions: saved.transitions !== false,
+      pulse: saved.pulse !== false,
+    }
+  } catch {
+    return DEFAULT_ANIM
+  }
+}
+
+/** 倍率限制在 0.5-2，避免极端值让界面看着卡死或乱闪 */
+export function clampAnimSpeed(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1
+  }
+  return Math.min(2, Math.max(0.5, Math.round(value * 10) / 10))
+}
+
+function readAnimSpeed(): number {
+  const saved = read(KEYS.animSpeed)
+  return clampAnimSpeed(saved === null ? 1 : Number(saved))
+}
+
+/** 并行度限制在 1-8：再高对本地工具没有收益，反而放大竞态 */
+export function clampParallel(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 4
+  }
+  return Math.min(8, Math.max(1, Math.round(value)))
+}
 
 /** 轮次限制在 1-24，避免异常配置导致死循环或能力不足 */
 export function clampRounds(value: number): number {
@@ -298,4 +385,41 @@ export const setMockAgent = (mockAgent: boolean) => {
 export const setMotion = (motion: Settings['motion']) => {
   write(KEYS.motion, motion)
   useSettings.setState({ motion })
+}
+
+export const setAnim = (anim: AnimSettings) => {
+  write(KEYS.anim, JSON.stringify(anim))
+  useSettings.setState({ anim })
+}
+
+export const toggleAnim = (key: keyof AnimSettings) => {
+  const anim = { ...useSettings.getState().anim, [key]: !useSettings.getState().anim[key] }
+  setAnim(anim)
+}
+
+export const setAnimSpeed = (value: number) => {
+  const animSpeed = clampAnimSpeed(value)
+  write(KEYS.animSpeed, String(animSpeed))
+  useSettings.setState({ animSpeed })
+}
+
+export const setTokenCounter = (tokenCounter: TokenCounterMode) => {
+  write(KEYS.tokenCounter, tokenCounter)
+  useSettings.setState({ tokenCounter })
+}
+
+export const setParallelTools = (value: number) => {
+  const parallelTools = clampParallel(value)
+  write(KEYS.parallelTools, String(parallelTools))
+  useSettings.setState({ parallelTools })
+}
+
+export const setBackgroundTools = (backgroundTools: boolean) => {
+  write(KEYS.backgroundTools, String(backgroundTools))
+  useSettings.setState({ backgroundTools })
+}
+
+export const setSystemPrompt = (systemPrompt: string) => {
+  write(KEYS.systemPrompt, systemPrompt)
+  useSettings.setState({ systemPrompt })
 }

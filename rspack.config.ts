@@ -71,6 +71,8 @@ export const createConfig = ({
         type: 'javascript/auto',
       },
       { test: /\.(woff2?|ttf)$/, type: 'asset/resource' },
+      // 词表这类大文本单独发文件，运行时按需 fetch，不塞进 JS
+      { test: /\.txt$/, type: 'asset/resource' },
     ],
   },
   plugins: [

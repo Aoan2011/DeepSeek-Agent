@@ -3,7 +3,13 @@ import { createId } from '../../utils/id.js'
 import { ApiError, streamMessage } from '../api/client.js'
 import type { ChatModel, CreateMessageRequest, RequestTool } from '../api/types.js'
 import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
-import { cancelUpload, describeUploadError, uploadAttachment, useUploads } from '../attachments.js'
+import {
+  cancelUpload,
+  checkImageFileIds,
+  describeUploadError,
+  uploadAttachment,
+  useUploads,
+} from '../attachments.js'
 import { reasoningEffortValue, thinkingBudget, useSettings } from '../settings.js'
 import { buildToolDeclarations, runToolCalls } from '../agent/runtime.js'
 import { clearApprovals } from '../agent/approval.js'
@@ -46,7 +52,12 @@ import {
 /** deepseek-flash 同时支持深度思考与图片输入 */
 const MODEL: ChatModel = 'deepseek-flash'
 /** 所有生成请求统一携带的助手身份说明 */
-const SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
+const BASE_SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
+/** 用户自定义提示词追加在服务端提示之后，留空时只用基础提示 */
+const systemPrompt = () => {
+  const extra = useSettings.getState().systemPrompt.trim()
+  return extra ? `${BASE_SYSTEM_PROMPT}\n\n${extra}` : BASE_SYSTEM_PROMPT
+}
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
 /** 安全审核固定开启，所有请求都走扩展模式 */
@@ -610,6 +621,8 @@ export const sendMessage = (targetSessionId: string | null) => {
     files: files.map(({ id, serverId, name, size, isImage, mimeType }) => ({
       id,
       serverId,
+      // 草稿附件已上传成功，每张图片都在上传前检查过长边，超限的已缩小。
+      imageSizeChecked: isImage,
       name,
       size,
       isImage,
@@ -630,6 +643,38 @@ export const sendMessage = (targetSessionId: string | null) => {
   }
   persist(sessionId)
   clearSentDraft(targetSessionId)
+  void streamReply(sessionId, reply, { history, question })
+  return true
+}
+
+/**
+ * 以用户身份追加一条消息并立刻请求回答。
+ * 后台任务完成后「把结果发给 Agent」走这里，用户能看到自己发了什么，也能撤回。
+ */
+export const sendInjectedMessage = (sessionId: string, text: string) => {
+  const content = text.trim()
+  if (!content || get().importingHistory || deletingSessions.has(sessionId)) {
+    return false
+  }
+  const session = getSession(sessionId)
+  if (!session || getStreamController(sessionId)) {
+    return false
+  }
+  const now = Date.now()
+  const history = getVisibleMessages(session)
+  const question: UserMessage = {
+    id: createId(),
+    role: 'user',
+    content,
+    files: [],
+    createdAt: now,
+  }
+  const reply = createReply()
+  updateSession(sessionId, (current) => ({
+    ...appendBranch(current, history.at(-1)?.id ?? null, [question, reply]),
+    updatedAt: now,
+  }))
+  persist(sessionId)
   void streamReply(sessionId, reply, { history, question })
   return true
 }
@@ -770,8 +815,11 @@ export const retryUpload = (sessionId: string, messageId: string) => {
 
 type Request = { history: Message[]; question: UserMessage; prefix?: AssistantMessage }
 
-/** 把补传得到的 serverId 写回会话里所有引用同一附件的消息（编辑、重新生成会共用附件） */
-const saveServerIds = (sessionId: string, serverIds: Map<string, string>) => {
+/**
+ * 将 serverId 写回所有引用同一附件的消息。传入 null 会清除超限旧图的 ID，触发补传。
+ * 尺寸标记随有效 ID 保存，因为本地保留的是原图，刷新后可以直接复用已检查的上传副本。
+ */
+const saveServerIds = (sessionId: string, serverIds: ReadonlyMap<string, string | null>) => {
   if (serverIds.size === 0) {
     return
   }
@@ -781,9 +829,12 @@ const saveServerIds = (sessionId: string, serverIds: Map<string, string>) => {
       message.role === 'user' && message.files.some((file) => serverIds.has(file.id))
         ? {
             ...message,
-            files: message.files.map((file) =>
-              serverIds.has(file.id) ? { ...file, serverId: serverIds.get(file.id) ?? null } : file
-            ),
+            files: message.files.map((file) => {
+              const serverId = serverIds.get(file.id)
+              return serverId === undefined
+                ? file
+                : { ...file, serverId, imageSizeChecked: file.isImage && serverId !== null }
+            }),
           }
         : message
     ),
@@ -838,15 +889,25 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
   // 否则快照里仍是旧 id，补传会直接复用它。
   request = refreshRequest(sessionId, request)
   const apiKey = useSettings.getState().apiKey ?? ''
-  const serverIds = new Map<string, string>()
+  const serverIds = new Map<string, string | null>()
   // 停止生成立即生效；上传本身不取消（输入框与其他消息可能共用同一任务），完成后照常写回 serverId
   const aborted = new Promise<never>((_, reject) => {
     signal.addEventListener('abort', () => reject(signal.reason), { once: true })
   })
+  // 旧图片超限时先清除 ID，交给下方已有的附件补传流程。
+  const allFiles = [
+    ...request.question.files,
+    ...getContextRounds(request.history).flatMap(([user]) => user.files),
+  ]
+  const checked = await Promise.race([checkImageFileIds(allFiles, signal), aborted])
+  if (checked.size > 0) {
+    saveServerIds(sessionId, checked)
+    request = refreshRequest(sessionId, request)
+  }
   const uploads = Promise.allSettled(
     request.question.files.map(async (file) => {
       const serverId = await ensureServerId(apiKey, file)
-      if (serverId) {
+      if (serverId && serverId !== file.serverId) {
         serverIds.set(file.id, serverId)
       }
     })
@@ -1041,7 +1102,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           const effort = initial.thinking ? useSettings.getState().reasoningEffort : 0
           const body: CreateMessageRequest = {
             model: initial.model ?? settings.model ?? MODEL,
-            system: SYSTEM_PROMPT,
+            system: systemPrompt(),
             messages,
             thinking: initial.thinking
               ? fallbackNoReasoning

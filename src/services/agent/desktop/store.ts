@@ -4,6 +4,7 @@ import { registerTools, unregisterTools } from '../registry.js'
 import type { RegisteredTool, ToolDefinition } from '../types.js'
 import { DesktopClient, type DesktopInfo } from './client.js'
 import type { McpCallResult, McpToolInfo } from '../mcp/types.js'
+import type { ToolImage } from '../types.js'
 
 const URL_KEY = 'chat-agent:desktop-url'
 const TOKEN_KEY = 'chat-agent:desktop-token'
@@ -53,15 +54,31 @@ const DESKTOP_TOOLS: Record<string, { risk: ToolDefinition['risk']; approval?: b
   desk_mouse: { risk: 'exec', approval: true, icon: 'desktop' },
   desk_keyboard: { risk: 'exec', approval: true, icon: 'terminal' },
   desk_window: { risk: 'write', approval: true, icon: 'desktop' },
+  // 移植过来的扩展工具：只读的默认免确认，会写盘或读隐私的仍然要确认
+  desk_hash: { risk: 'safe', icon: 'code' },
+  desk_grep: { risk: 'safe', icon: 'search' },
+  desk_archive: { risk: 'write', approval: true, icon: 'folder' },
+  desk_json_query: { risk: 'safe', icon: 'code' },
+  desk_net_probe: { risk: 'network', icon: 'globe' },
+  desk_process_list: { risk: 'safe', icon: 'chip' },
+  desk_text_stats: { risk: 'safe', icon: 'file' },
+  desk_clipboard: { risk: 'write', approval: true, icon: 'clipboard' },
+  desk_git: { risk: 'safe', icon: 'move' },
 }
 
 const toArtifacts = async (
   tools: string,
   result: McpCallResult,
   sessionId: string
-): Promise<{ text: string; artifacts: Awaited<ReturnType<typeof createArtifact>>[] }> => {
+): Promise<{
+  text: string
+  artifacts: Awaited<ReturnType<typeof createArtifact>>[]
+  /** 截图等图片同时回传给模型，否则模型只看到一句「已截图」 */
+  images: ToolImage[]
+}> => {
   const texts: string[] = []
   const artifacts: Awaited<ReturnType<typeof createArtifact>>[] = []
+  const images: ToolImage[] = []
   for (const [index, item] of result.content.entries()) {
     if (item.type === 'text') {
       texts.push(item.text)
@@ -77,10 +94,11 @@ const toArtifacts = async (
         sessionId,
       })
       artifacts.push(artifact)
+      images.push({ mediaType: item.mimeType, data: item.data, name: artifact.name })
       texts.push(`（截图已保存为 ${artifact.name}）`)
     }
   }
-  return { text: texts.join('\n\n') || '（无输出）', artifacts }
+  return { text: texts.join('\n\n') || '（无输出）', artifacts, images }
 }
 
 const registerDesktopTools = (tools: McpToolInfo[], active: DesktopClient) => {
@@ -115,8 +133,17 @@ const registerDesktopTools = (tools: McpToolInfo[], active: DesktopClient) => {
         context.progress('正在本机执行…')
         try {
           const result = await active.callTool(tool.name, input)
-          const { text, artifacts } = await toArtifacts(tool.name, result, context.sessionId)
-          return { content: text, isError: result.isError, artifacts }
+          const { text, artifacts, images } = await toArtifacts(
+            tool.name,
+            result,
+            context.sessionId
+          )
+          return {
+            content: text,
+            isError: result.isError,
+            artifacts,
+            ...(images.length ? { images } : {}),
+          }
         } catch (error) {
           return {
             content: `桌面端执行失败：${error instanceof Error ? error.message : String(error)}`,
@@ -127,6 +154,31 @@ const registerDesktopTools = (tools: McpToolInfo[], active: DesktopClient) => {
     }
   })
   registerTools(registered)
+}
+
+/**
+ * 切换本机工作区：直接调用桥接的 desk_workspace 工具。
+ * 这是用户在选择器里的主动操作，不需要再走一遍审批。
+ */
+export const switchDesktopWorkspace = async (path: string): Promise<boolean> => {
+  if (!client) {
+    return false
+  }
+  const result = await client.callTool('desk_workspace', { action: 'use', path })
+  if (result.isError) {
+    return false
+  }
+  const info = useDesktop.getState().info
+  if (info?.workspaces) {
+    useDesktop.setState({
+      info: {
+        ...info,
+        sandbox: path,
+        workspaces: info.workspaces.map((item) => ({ ...item, current: item.path === path })),
+      },
+    })
+  }
+  return true
 }
 
 export const connectDesktop = async (url?: string, token?: string): Promise<void> => {

@@ -3,6 +3,7 @@ import type { AssistantMessage, ReplyBlock, ToolCallPart } from '../chat/types.j
 import { useSettings } from '../settings.js'
 import { requestApproval } from './approval.js'
 import { getTool, listTools, runTool } from './registry.js'
+import { startTask, type TaskHandle } from './tasks.js'
 import type { ApprovalDecision, ToolDefinition, ToolResult } from './types.js'
 import { needsApproval, sourceLabel } from './types.js'
 
@@ -20,6 +21,16 @@ const timeoutFor = (definition: ToolDefinition) =>
   (definition.source === 'desktop' ? 300_000 : definition.source === 'mcp' ? 180_000 : 90_000)
 
 /**
+ * 每个工具 schema 都会附上一个可选的 purpose 字段。
+ * 它只用于界面展示「这次调用要做什么」，执行前会被剥离，不影响工具本身。
+ */
+const PURPOSE_SCHEMA = {
+  type: 'string',
+  description:
+    '用一句简短的中文短语说明这次调用要达成的目的（例如「调整对话界面样式」「读取配置」），会直接显示给用户。',
+} as const
+
+/**
  * 生成给模型的工具声明。MCP 返回的 schema 可能缺少 type，
  * 统一补成 object，避免服务端校验失败。
  */
@@ -28,19 +39,31 @@ export const buildToolDeclarations = (): ClientToolDefinition[] =>
     .filter((definition) => definition.name.length <= 64)
     .map((definition) => {
       const schema = definition.inputSchema as Record<string, unknown>
+      const properties =
+        typeof schema.properties === 'object' && schema.properties !== null
+          ? (schema.properties as Record<string, unknown>)
+          : {}
       return {
         name: definition.name,
         description: `${definition.description}\n\n[来源：${sourceLabel(definition.source)}${definition.serverName ? ` / ${definition.serverName}` : ''}]`,
         input_schema: {
           ...schema,
           type: 'object',
-          properties:
-            typeof schema.properties === 'object' && schema.properties !== null
-              ? schema.properties
-              : {},
+          properties: Object.hasOwn(properties, 'purpose')
+            ? properties
+            : { ...properties, purpose: PURPOSE_SCHEMA },
         } as ClientToolDefinition['input_schema'],
       }
     })
+
+/** 模型给的 purpose：优先用工具参数里的，缺失时返回空串由调用方兜底 */
+export const readPurpose = (input: unknown): string => {
+  if (!input || typeof input !== 'object') {
+    return ''
+  }
+  const value = (input as Record<string, unknown>).purpose
+  return typeof value === 'string' ? value.trim().slice(0, 80) : ''
+}
 
 export const describeToolInput = (input: unknown): string => {
   if (input === null || input === undefined) {
@@ -51,7 +74,6 @@ export const describeToolInput = (input: unknown): string => {
   }
   const record = input as Record<string, unknown>
   const priority = [
-    'question',
     'path',
     'command',
     'url',
@@ -59,6 +81,7 @@ export const describeToolInput = (input: unknown): string => {
     'selector',
     'name',
     'location',
+    'question',
     'code',
     'text',
   ]
@@ -68,8 +91,10 @@ export const describeToolInput = (input: unknown): string => {
       return value.length > 80 ? `${value.slice(0, 80)}…` : value
     }
   }
-  const first = Object.values(record).find((value) => typeof value === 'string')
-  return typeof first === 'string' ? first.slice(0, 80) : ''
+  const first = Object.entries(record).find(
+    ([key, value]) => key !== 'purpose' && typeof value === 'string'
+  )
+  return typeof first?.[1] === 'string' ? (first[1] as string).slice(0, 80) : ''
 }
 
 const updateCall = (
@@ -123,9 +148,19 @@ export type RunToolsOptions = {
   onEvent?: (event: 'start' | 'finish', call: ToolCallPart) => void
 }
 
+/** 开启「长任务转后台」后，工具跑过这个时长就自动脱离前台等待 */
+const AUTO_DETACH_MS = 20_000
+
+/** 前台一旦转入后台，用这个哨兵值结束等待 */
+const DETACHED = { kind: 'detached' } as const
+type RunOutcome = ToolResult | typeof DETACHED
+const isDetached = (value: RunOutcome): value is typeof DETACHED => 'kind' in value
+
 /**
- * 顺序执行本轮所有待执行的工具调用。
- * 顺序执行保证写文件、执行命令的副作用可预测，审批弹窗也不会同时叠多层。
+ * 执行本轮所有工具调用：
+ * 1. 审批阶段顺序进行，确认面板不会一次叠好几层；
+ * 2. 执行阶段按设置并行，单个工具随时可以「转入后台」，
+ *    前台拿到一条占位结果继续对话，真正的结果留在任务面板里。
  */
 export const runToolCalls = async (
   initial: AssistantMessage,
@@ -137,21 +172,19 @@ export const runToolCalls = async (
   )
   // 设置里把审批切成「完全访问」后不再逐个弹窗，直接执行；
   // 默认仍是每次询问，危险操作由用户当场决定
-  const autoApprove = useSettings.getState().toolApproval === 'auto'
+  const settings = useSettings.getState()
+  const autoApprove = settings.toolApproval === 'auto'
+  const approved: { call: ToolCallPart; definition: ToolDefinition }[] = []
+
   for (const call of calls) {
     if (options.signal.aborted) {
       break
     }
     const definition = getTool(call.name)?.definition
     const startedAt = Date.now()
-    let decision: ApprovalDecision = 'allow_once'
 
     // 未知工具也要走完流程，把明确错误交给模型
     if (!definition) {
-      const result: ToolResult = {
-        content: `工具「${call.name}」当前不可用。可能是 MCP 服务器断开或桌面端未连接，请告知用户检查连接状态，不要重复调用。`,
-        isError: true,
-      }
       reply = updateCall(reply, call.id, (block) => ({
         ...block,
         status: 'error',
@@ -162,7 +195,7 @@ export const runToolCalls = async (
       reply = appendResult(reply, {
         type: 'tool_result',
         tool_use_id: call.id,
-        content: result.content,
+        content: `工具「${call.name}」当前不可用。可能是 MCP 服务器断开或桌面端未连接，请告知用户检查连接状态，不要重复调用。`,
         isError: true,
         durationMs: Date.now() - startedAt,
       })
@@ -170,18 +203,19 @@ export const runToolCalls = async (
       continue
     }
 
+    const awaiting = needsApproval(definition) && !autoApprove
     reply = updateCall(reply, call.id, (block) => ({
       ...block,
       label: definition.label,
       risk: definition.risk,
       source: definition.source,
-      status: needsApproval(definition) && !autoApprove ? 'awaiting' : 'running',
-      ...(needsApproval(definition) && autoApprove ? { decision: 'allow' as const } : {}),
+      status: awaiting ? 'awaiting' : 'running',
+      ...(awaiting ? {} : { decision: 'allow' as const }),
     }))
     options.update(reply)
 
-    if (needsApproval(definition) && !autoApprove) {
-      decision = await requestApproval({
+    if (awaiting) {
+      const decision: ApprovalDecision = await requestApproval({
         id: `approve-${call.id}`,
         sessionId: options.sessionId,
         toolName: call.name,
@@ -195,7 +229,6 @@ export const runToolCalls = async (
         break
       }
       if (decision === 'deny') {
-        const message = '用户拒绝执行该操作。请不要重试，改为说明需要用户手动完成，或换一种方式。'
         reply = updateCall(reply, call.id, (block) => ({
           ...block,
           status: 'denied',
@@ -205,7 +238,7 @@ export const runToolCalls = async (
         reply = appendResult(reply, {
           type: 'tool_result',
           tool_use_id: call.id,
-          content: message,
+          content: '用户拒绝执行该操作。请不要重试，改为说明需要用户手动完成，或换一种方式。',
           isError: true,
           durationMs: 0,
         })
@@ -223,40 +256,101 @@ export const runToolCalls = async (
     const running = reply.blocks.find(
       (block): block is ToolCallPart => block.type === 'tool_use' && block.id === call.id
     )
-    if (running) {
-      options.onEvent?.('start', running)
+    approved.push({ call: running ?? call, definition })
+  }
+
+  /** 单个工具的执行：注册任务、支持转入后台、结果写回消息 */
+  const executeOne = async (entry: { call: ToolCallPart; definition: ToolDefinition }) => {
+    const { call, definition } = entry
+    if (options.signal.aborted) {
+      return
     }
+    options.onEvent?.('start', call)
+
+    const purpose = readPurpose(call.input) || definition.label
+    const task: TaskHandle = startTask({
+      sessionId: options.sessionId,
+      kind: 'tool',
+      toolName: call.name,
+      label: definition.label,
+      purpose,
+      parentSignal: options.signal,
+    })
+
+    // 任务 id 先写回工具块，界面在执行中就能提供「后台运行」
+    reply = updateCall(reply, call.id, (block) => ({ ...block, taskId: task.id }))
+    options.update(reply)
 
     // 审批等待不计入执行耗时，否则工具卡片会显示成十几秒
     const execStartedAt = Date.now()
-    let result: ToolResult
-    try {
-      result = await withTimeout(
-        (signal) =>
-          runTool(call.name, toArguments(call.input), {
-            sessionId: options.sessionId,
-            signal,
-            progress: (text) => {
-              reply = updateCall(reply, call.id, (block) => ({ ...block, progress: text }))
-              options.update(reply)
-            },
-          }),
-        options.signal,
-        timeoutFor(definition)
-      )
-    } catch (error) {
-      const aborted = options.signal.aborted
-      result = {
-        content: aborted
-          ? '用户停止了生成，工具调用被中止。'
-          : `工具执行超时或被中断：${error instanceof Error ? error.message : String(error)}`,
-        isError: true,
+    const execution = withTimeout(
+      (signal) =>
+        runTool(call.name, toArguments(call.input), {
+          sessionId: options.sessionId,
+          signal,
+          progress: (text) => {
+            reply = updateCall(reply, call.id, (block) => ({ ...block, progress: text }))
+            options.update(reply)
+          },
+        }),
+      task.signal,
+      timeoutFor(definition)
+    ).then(
+      (result): ToolResult => result,
+      (error: unknown): ToolResult => {
+        const aborted = options.signal.aborted || task.signal.aborted
+        return {
+          content: aborted
+            ? '用户停止了生成，工具调用被中止。'
+            : `工具执行超时或被中断：${error instanceof Error ? error.message : String(error)}`,
+          isError: true,
+        }
       }
+    )
+
+    // 等待用户回答的工具有意为之地挂住，不能被自动转后台
+    const autoDetach =
+      settings.backgroundTools && call.name !== 'ask_user'
+        ? window.setTimeout(() => task.detach(), AUTO_DETACH_MS)
+        : undefined
+
+    const outcome: RunOutcome = await Promise.race([
+      execution,
+      task.waitDetach().then(() => DETACHED),
+    ]).finally(() => {
+      if (autoDetach !== undefined) {
+        window.clearTimeout(autoDetach)
+      }
+    })
+
+    if (isDetached(outcome)) {
+      // 转入后台：前台只留一条说明，真正的结果由任务面板查看
+      reply = updateCall(reply, call.id, (block) => ({
+        ...block,
+        status: 'done',
+        endedAt: Date.now(),
+        progress: undefined,
+        detached: true,
+      }))
+      reply = appendResult(reply, {
+        type: 'tool_result',
+        tool_use_id: call.id,
+        content: `该操作已转入后台执行（任务 ${task.id}），结果稍后可在任务面板查看。不要重复调用同一个工具，先继续回答当前问题。`,
+        durationMs: 0,
+        meta: { taskId: task.id, detached: true },
+      })
+      options.update(reply)
+      void execution.then((result) => {
+        task.finish({ output: result.content, isError: result.isError })
+      })
+      return
     }
 
-    if (options.signal.aborted && !result.isError) {
-      result = { content: '用户停止了生成，工具已中止。', isError: true }
-    }
+    const result =
+      options.signal.aborted && !outcome.isError
+        ? { content: '用户停止了生成，工具已中止。', isError: true }
+        : outcome
+    task.finish({ output: result.content, isError: result.isError })
 
     reply = updateCall(reply, call.id, (block) => ({
       ...block,
@@ -271,6 +365,8 @@ export const runToolCalls = async (
       isError: result.isError,
       artifacts: result.artifacts,
       durationMs: Date.now() - execStartedAt,
+      ...(result.meta ? { meta: result.meta } : {}),
+      ...(result.images?.length ? { images: result.images } : {}),
     })
     options.update(reply)
     const finished = reply.blocks.find(
@@ -280,19 +376,42 @@ export const runToolCalls = async (
       options.onEvent?.('finish', finished)
     }
   }
+
+  // 并行度 1 等价于原来的顺序执行
+  const limit = Math.max(1, settings.parallelTools)
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(limit, approved.length) }, async () => {
+    while (cursor < approved.length) {
+      const entry = approved[cursor]
+      cursor += 1
+      if (options.signal.aborted) {
+        return
+      }
+      await executeOne(entry)
+    }
+  })
+  await Promise.all(workers)
   return reply
 }
 
-/** 模型可能把参数写成字符串，统一成对象再交给工具 */
+/** 模型可能把参数写成字符串，统一成对象再交给工具；purpose 只用于展示，执行前剥离 */
 const toArguments = (input: unknown): Record<string, unknown> => {
+  const strip = (value: Record<string, unknown>) => {
+    if (!Object.hasOwn(value, 'purpose')) {
+      return value
+    }
+    const next = { ...value }
+    delete next.purpose
+    return next
+  }
   if (typeof input === 'object' && input !== null && !Array.isArray(input)) {
-    return input as Record<string, unknown>
+    return strip(input as Record<string, unknown>)
   }
   if (typeof input === 'string' && input.trim()) {
     try {
       const parsed: unknown = JSON.parse(input)
       if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>
+        return strip(parsed as Record<string, unknown>)
       }
     } catch {
       return {}

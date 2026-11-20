@@ -14,6 +14,8 @@ export type DesktopInfo = {
   sandbox: string
   /** 沙箱之外额外放行的目录，默认包含 ~/.skills */
   allowed?: string[]
+  /** 可切换的本机工作区；current 表示当前沙箱根 */
+  workspaces?: { name: string; path: string; current: boolean }[]
   capabilities: string[]
 }
 

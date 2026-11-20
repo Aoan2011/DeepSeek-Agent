@@ -66,6 +66,16 @@ class Sandbox:
             return self.label(path) if self._inside(path) else str(path)
         return "." if str(rel) == "." else str(rel)
 
+    def switch_root(self, target: Path, allowed: Iterable[Path]) -> Path:
+        """切换工作区：只接受配置里出现过的目录，切换后所有相对路径都按新根解析。"""
+        resolved = Path(target).expanduser().resolve()
+        options = {Path(item).expanduser().resolve() for item in allowed}
+        if resolved not in options:
+            raise SandboxError(f"不在可用工作区列表里：{resolved}")
+        resolved.mkdir(parents=True, exist_ok=True)
+        self.root = resolved
+        return resolved
+
     def ensure_parent(self, path: Path) -> None:
         parent = path.parent
         parent.mkdir(parents=True, exist_ok=True)

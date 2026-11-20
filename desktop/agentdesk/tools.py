@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from . import computer
+from . import computer, tools_extra
 from .config import Settings
 from .sandbox import Sandbox, SandboxError
 
@@ -70,6 +70,11 @@ def _text(value: str, *, error: bool = False) -> dict[str, Any]:
 
 
 def definitions() -> list[dict[str, Any]]:
+    read_only = {"readOnlyHint": True}
+    return _builtin_definitions() + tools_extra.definitions()
+
+
+def _builtin_definitions() -> list[dict[str, Any]]:
     read_only = {"readOnlyHint": True}
     return [
         {
@@ -310,7 +315,7 @@ async def call(name: str, args: dict[str, Any], context: ToolContext) -> dict[st
         elapsed = int((time.monotonic() - started) * 1000)
         context.log(name, _summary(args), elapsed, not result.get("isError", False))
         return result
-    except (ToolError, SandboxError, computer.ComputerError) as error:
+    except (ToolError, SandboxError, computer.ComputerError, tools_extra.ExtraToolError) as error:
         elapsed = int((time.monotonic() - started) * 1000)
         context.log(name, str(error), elapsed, False)
         return _text(str(error), error=True)
@@ -333,6 +338,11 @@ async def _dispatch(name: str, args: dict[str, Any], context: ToolContext) -> di
     sandbox = context.sandbox
     settings = context.settings
 
+    # 扩展工具集：哈希、检索、压缩包、JSON、网络、进程、文本、剪贴板、git
+    extended = await tools_extra.dispatch(name, args, sandbox, settings)
+    if extended is not None:
+        return extended
+
     if name == "desk_system_info":
         usage = shutil.disk_usage(sandbox.root)
         allowed = "、".join(sandbox.label(path) for path in sandbox.allowed) or "无"
@@ -345,7 +355,7 @@ async def _dispatch(name: str, args: dict[str, Any], context: ToolContext) -> di
                     f"额外放行：{allowed}",
                     f"磁盘：可用 {human_size(usage.free)} / 共 {human_size(usage.total)}",
                     f"Shell：{'允许' if settings.allow_shell else '已禁用'}",
-                    "可用工具：fs_read / fs_list / fs_stat / fs_write / fs_delete / fs_move / shell_exec / python_exec / screen_capture / mouse / keyboard / window",
+                    "可用工具：" + " / ".join(item["name"].removeprefix("desk_") for item in definitions()),
                 ]
             )
         )

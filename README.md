@@ -19,11 +19,17 @@
 | 桌面端（Python + rich） | 本机文件读写改删、命令执行、Python 执行、目录沙箱、本地 stdio MCP 桥接 |
 | MCP 客户端 | 远程 Streamable HTTP / SSE 服务器，以及经桌面端桥接的本地 stdio 服务器 |
 | 文件产物 | 工具产出的 Markdown / 图片 / JSON 等落库到 IndexedDB，可在对话里预览与下载 |
-| 审批机制 | 写文件、执行命令、点击页面等危险操作默认弹窗确认，可本会话内放行 |
-| 工作区 | 内置演示仓库或本地文件夹，文件树按目录列出改动，点开就是逐行 diff |
+| 权限与审批 | 写文件、执行命令、点击页面等危险操作默认确认；权限模式（默认权限 / 允许完全访问）放在输入框里，确认面板与提问面板同位置，页面在后台时用系统通知提醒 |
+| 工具调用行 | 与搜索步骤同一套视觉：图标 + Agent 写的目的 + 状态 + 耗时，没有卡片外壳；文件改动显示 `+N −M`，点一下直接跳到该文件的 diff |
+| 并行与后台 | 一轮最多同时跑 8 个工具（可调）；单个工具可「后台运行」，或超过 20 秒自动转后台，任务面板里看进度、取消、回传结果 |
+| 自建工具 | Agent 可以把已有工具组合成新工具（只做编排，不生成代码），注册后当内置工具用 |
+| 回答内预览 | `preview_file` 在回答底部渲染代码 / Markdown / HTML 网页 / 图片 / CSV 的预览 widget |
+| 看图 | `view_image` 支持 base64、产物 id、远程地址，缩到长边 1568 内以图片块回传模型；扩展与桌面端截图同样会真正回传 |
+| 工作区 | 内置演示仓库 + 任意多个本地文件夹，在输入框里选择当前使用哪一个；文件树按目录列出改动，点开就是逐行 diff |
+| 精确 token | 底栏与草稿计数可切换到 DeepSeek 真实词表（BPE）逐 token 切分，词表按需懒加载 1.5MB，取不到时自动退回估算 |
 | Git 分支 | 读取 `.git` 的分支与当前分支；演示仓库可切换、新建分支，基线与工作树整组替换 |
 | Monaco diff | 懒加载 Monaco DiffEditor：删除行红底、新增行绿底，实时 `+N −M` 统计，可并排或行内 |
-| 实时状态条 | 输入框下方每秒刷新输入 / 输出 token、首字延迟、缓存命中率、瞬时速度与用时；速度取最近 1.2s 的差分，停顿时会落回 0，跑完才显示整轮平均。数字变化带模糊跳动 |
+| 实时状态条 | 输入框下方每秒刷新输入 / 输出 token、首字延迟、缓存命中率、瞬时速度与用时，另有防抖 220ms 的草稿 token；只订阅运行状态切片，流式过程中不再整条重渲染。速度取最近 1.2s 的差分，停顿时落回 0，跑完显示整轮平均 |
 | 上下文占用 | 输入框右下角的圆环按模型窗口折算本轮上下文的占用，超过 60% 变琥珀、85% 变红 |
 | 液态玻璃 | 侧边栏与输入框用 canvas 位移贴图 + `backdrop-filter: url(#filter)` 做真实折射，参数 0.45 / 0.60 / 0.6 / 0.11 / 1px |
 | 渐进式模糊 | 对话顶部与输入框下方各叠一组渐变蒙版的模糊层，内容滚进标题栏或输入区时逐级虚化 |
@@ -32,7 +38,9 @@
 | 流式文字动画 | 新到的文字从偏下位置轻微上浮并解除高斯模糊，落位时回弹一下 |
 | 模型选择 | 下拉切换模型，支持从远端 `/models` 拉取并缓存，失败时回落到内置列表 |
 | 思考强度 | 深度思考按钮展开五档轨道，真实下发 `reasoning_effort` 与思考预算，满档提示额度消耗 |
-| 视觉效果 | 极光背景、光标柔光、标题流光、消息入场、工具卡片执行态流光，并尊重「精简动效」设置 |
+| 视觉效果 | 极光背景、光标柔光、标题流光、消息入场、执行脉冲，并尊重「精简动效」设置 |
+| 动效调节 | 设置里可调动画速度倍率（0.5×-2×），并逐项开关光斑 / 流光 / 过渡 / 脉冲；系统「减少动态效果」同样生效 |
+| 多工作区 | 演示仓库与多个本地目录并列，句柄存 IndexedDB，刷新后按需重新授权 |
 
 <table>
 <tr>
@@ -195,9 +203,24 @@ python -m agentdesk --serve-web ../dist   # 同时托管构建产物
 http://localhost:8090/?desktop=ws%3A//127.0.0.1%3A8765&token=<令牌>
 ```
 
-提供 13 个本机工具，连接后工具面板会出现独立的「本机桌面端」分组。
+提供 23 个本机工具，连接后工具面板会出现独立的「本机桌面端」分组。
 
 文件与执行（9 个）：`desk_fs_read`、`desk_fs_list`、`desk_fs_stat`、`desk_fs_write`、`desk_fs_delete`、`desk_fs_move`、`desk_shell_exec`、`desk_python_exec`、`desk_system_info`。
+
+数据与诊断（9 个，参考 one-cedric3 移植）：
+
+| 工具 | 作用 |
+| --- | --- |
+| `desk_hash` | md5/sha1/sha256/sha512、base64 编解码、生成 uuid |
+| `desk_grep` | 沙箱内按正则搜内容，返回文件:行号，自动跳过二进制与大目录 |
+| `desk_archive` | zip 列表 / 解压 / 打包，解压时拦截 `../` 路径穿越 |
+| `desk_json_query` | 点号路径取值，例如 `data.items.0.name` |
+| `desk_net_probe` | HTTP 状态码与耗时、DNS 解析、TCP 端口连通性 |
+| `desk_process_list` | 进程占用排行，有 psutil 时更准 |
+| `desk_text_stats` | 行数、字符数、词数、字节与估算 token |
+| `desk_clipboard` | 读写系统剪贴板（读需要确认） |
+| `desk_git` | 只读 git 查询：status / log / diff / branch / show |
+| `desk_workspace` | 列出 / 切换本机工作区；额外目录写在 `~/.agentdesk/config.json` 的 `workspaces` 或 `AGENTDESK_WORKSPACES` 里 |
 
 电脑操作（4 个）：
 
@@ -384,6 +407,22 @@ docs/screenshots/        文档配图
 | `pnpm type` | TypeScript 类型检查 |
 | `pnpm lint` | oxlint 检查 |
 | `pnpm format` | oxfmt 格式化 |
+
+桌面端测试（pytest）：
+
+```sh
+cd desktop
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest -q
+```
+
+`.github/workflows/ci.yml` 跑三组任务：网页端类型检查 + lint + 构建；桌面端在 Ubuntu / macOS / Windows × Python 3.9 / 3.11 / 3.13 上跑 pytest；以及校验词表资源存在。
+
+重新生成词表（需要 DeepSeek 的 `tokenizer.json`）：
+
+```sh
+node scripts/build-tokenizer.mjs /path/to/tokenizer.json
+```
 
 ## 已知限制
 

@@ -1,5 +1,14 @@
 import { getTool } from '../registry.js'
 import { createArtifact, formatBytes } from '../artifacts.js'
+import * as db from '../../chat/db.js'
+import { workspaceSnapshot } from '../../workspace/store.js'
+import { isWebUrl } from '../../../utils/url.js'
+import {
+  downscaleImage,
+  readBase64Payload,
+  splitDataUrl,
+  type ImagePayload,
+} from '../../../utils/imageData.js'
 import type { RegisteredTool } from '../types.js'
 import {
   bool,
@@ -534,6 +543,162 @@ const openUrlTool = defineTool(
   'browser'
 )
 
+/**
+ * view_image：把图片以 base64 交给模型。
+ * 浏览器扩展截图、产物图片、远程图片都可以走这里，避免「模型只看到一句描述」。
+ */
+const viewImageTool = defineTool(
+  {
+    name: 'view_image',
+    label: '查看图片',
+    description:
+      '把一张图片交给模型查看。支持三种来源：data_url（base64 或 data URL）、artifact_id（此前生成的图片产物）、image_url（远程图片地址）。' +
+      '浏览器扩展截图如果只返回了文字，可以把截图产物的 artifact_id 传进来重新读取。',
+    inputSchema: objectSchema({
+      data_url: { type: 'string', description: 'base64 字符串或 data:image/...;base64,... 形式的地址' },
+      artifact_id: { type: 'string', description: '图片产物的 id' },
+      image_url: { type: 'string', description: '远程图片的 http(s) 地址' },
+      max_edge: { type: 'number', description: '长边上限，默认 1568，超过会等比缩小' },
+    }),
+    risk: 'safe',
+    icon: 'eye',
+  },
+  async (input, context) => {
+    const maxEdge = Math.min(2048, Math.max(256, Math.round(num(input, 'max_edge') ?? 1568)))
+    let payload: ImagePayload | null = null
+    const artifactId = str(input, 'artifact_id').trim()
+    const imageUrl = str(input, 'image_url').trim()
+    const dataUrl = str(input, 'data_url').trim()
+
+    if (artifactId) {
+      context.progress('读取产物…')
+      const stored = await db.loadArtifact(artifactId)
+      if (!stored?.dataUrl) {
+        return fail(`产物 ${artifactId} 不是图片或已丢失`)
+      }
+      payload = splitDataUrl(stored.dataUrl) ?? readBase64Payload(stored.dataUrl)
+    } else if (dataUrl) {
+      payload = readBase64Payload(dataUrl)
+    } else if (imageUrl) {
+      if (!isWebUrl(imageUrl)) {
+        return fail('image_url 只支持 http/https 地址')
+      }
+      context.progress('下载图片…')
+      try {
+        const response = await fetch(imageUrl, { signal: context.signal })
+        if (!response.ok) {
+          return fail(`下载失败：HTTP ${response.status}`)
+        }
+        const blob = await response.blob()
+        const encoded = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(String(reader.result))
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(blob)
+        })
+        payload = splitDataUrl(encoded)
+      } catch (error) {
+        return fail(`下载图片失败：${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+
+    if (!payload) {
+      return fail('没有可用的图片：请传 data_url、artifact_id 或 image_url 之一')
+    }
+    const scaled = await downscaleImage(payload, maxEdge)
+    const size = Math.round((scaled.data.length * 3) / 4 / 1024)
+    return ok(
+      `已读取图片（${scaled.mediaType}，约 ${size} KB，长边 ≤ ${maxEdge}px）`,
+      { images: [{ mediaType: scaled.mediaType, data: scaled.data }], meta: { mediaType: scaled.mediaType, size } }
+    )
+  },
+  'browser'
+)
+
+/**
+ * preview_file：把文件以内联 widget 放在回答底部，代码、图片、网页都能直接看。
+ * 内容可以是模型生成的，也可以是工作区里的文件或一个远程地址。
+ */
+const previewFileTool = defineTool(
+  {
+    name: 'preview_file',
+    label: '预览文件',
+    description:
+      '在回答底部生成一个内联预览卡片，支持代码、Markdown、HTML 网页、图片、CSV/JSON。' +
+      '可以传 content 生成新文件，传 path 预览工作区里的文件，或传 url 预览一个网页。适合把结果直接摆在用户面前。',
+    inputSchema: objectSchema({
+      name: { type: 'string', description: '文件名，需带扩展名，例如 report.md；传 url 时可省略' },
+      content: { type: 'string', description: '文件文本内容；传 path 或 url 时省略' },
+      path: { type: 'string', description: '工作区里的相对路径' },
+      url: { type: 'string', description: '要预览的网页地址（http/https）' },
+      caption: { type: 'string', description: '一句话说明' },
+    }),
+    risk: 'safe',
+    icon: 'layers',
+  },
+  async (input, context) => {
+    const caption = str(input, 'caption').trim()
+    const remote = str(input, 'url').trim()
+    if (remote) {
+      if (!isWebUrl(remote)) {
+        return fail('url 只支持 http/https 地址')
+      }
+      return ok(`已在回答底部预览 ${remote}`, {
+        meta: {
+          preview: { url: remote, name: remote, kind: 'html', caption },
+        },
+      })
+    }
+
+    let name = str(input, 'name').trim()
+    let content = str(input, 'content')
+    const path = str(input, 'path').trim()
+    if (path) {
+      const snapshot = workspaceSnapshot()
+      if (!snapshot) {
+        return fail('工作区还没有打开，无法按路径预览。请改用 content 直接传内容。')
+      }
+      const file = snapshot.files[path]
+      if (file === undefined) {
+        return fail(`文件不存在：${path}`)
+      }
+      name = name || path
+      content = file
+    }
+    if (!content) {
+      return fail('content、path、url 至少提供一个')
+    }
+    if (content.length > 2_000_000) {
+      return fail('文件过大（超过 2MB），请拆分后再预览')
+    }
+    if (!name) {
+      name = 'preview.txt'
+    }
+    context.progress('准备预览…')
+    const meta = await createArtifact({
+      name,
+      text: content,
+      source: 'browser',
+      tool: 'preview_file',
+      sessionId: context.sessionId,
+    })
+    return ok(`已在回答底部预览「${meta.name}」${caption ? `：${caption}` : ''}`, {
+      artifacts: [meta],
+      meta: {
+        preview: {
+          id: meta.id,
+          name: meta.name,
+          kind: meta.kind,
+          mime: meta.mime,
+          size: meta.size,
+          caption,
+        },
+      },
+    })
+  },
+  'browser'
+)
+
 export const browserTools: RegisteredTool[] = [
   timeTool,
   locationTool,
@@ -544,4 +709,6 @@ export const browserTools: RegisteredTool[] = [
   fetchPageTool,
   createFileTool,
   openUrlTool,
+  viewImageTool,
+  previewFileTool,
 ]

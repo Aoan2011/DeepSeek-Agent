@@ -2,8 +2,10 @@ import clsx from 'clsx'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import type { ToolCallPart, ToolResultPart } from '../../services/chat/types.js'
-import { describeToolInput } from '../../services/agent/runtime.js'
+import { describeToolInput, readPurpose } from '../../services/agent/runtime.js'
+import { detachTask } from '../../services/agent/tasks.js'
 import { IconChevronDownOutline14, IconChevronRightOutline14 } from '../base/icons.js'
+import { openWorkspaceFile } from '../workspace/workspacePanelState.js'
 import { toolIcon } from './ToolIcons.js'
 import styles from './ToolCallCard.module.css'
 
@@ -12,7 +14,7 @@ const formatDuration = (ms: number) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).t
 const statusText = (
   status: ToolCallPart['status'],
   name: string,
-  labels: { waiting: string; answered: string }
+  labels: { waiting: string; answered: string; detached: string }
 ) => {
   if (name === 'ask_user') {
     if (status === 'running') {
@@ -63,7 +65,26 @@ const readAsk = (input: unknown) => {
   }
 }
 
-/** 工具调用卡片：状态、参数、耗时、结果与产物 */
+/** 文件改动的行数统计，来自工具结果的 meta */
+const readChange = (result?: ToolResultPart) => {
+  const meta = result?.meta
+  if (!meta) {
+    return null
+  }
+  const path = typeof meta.path === 'string' ? meta.path : ''
+  const additions = typeof meta.additions === 'number' ? meta.additions : null
+  const deletions = typeof meta.deletions === 'number' ? meta.deletions : null
+  if (!path || (additions === null && deletions === null)) {
+    return null
+  }
+  return { path, additions: additions ?? 0, deletions: deletions ?? 0 }
+}
+
+/**
+ * 工具调用行：和搜索步骤一样的一条横向行，没有卡片外壳与底色。
+ * 结构是「图标 + Agent 给的目的 + 改动统计 + 状态 + 耗时」，点整行展开参数与结果。
+ * 文件改动会显示 +N −M，点它直接打开工作区的 diff。
+ */
 export const ToolCallCard = ({
   call,
   result,
@@ -118,6 +139,8 @@ export const ToolCallCard = ({
   }
 
   const label = call.label ?? call.name
+  const purpose = readPurpose(call.input)
+  const arg = describeToolInput(call.input)
   const duration = result?.durationMs ?? (call.endedAt ? call.endedAt - call.startedAt : undefined)
   const raw = result?.content ?? ''
   // ask_user 的结果是给模型的完整句子，界面上只留「选择 / 补充说明」两行
@@ -128,89 +151,148 @@ export const ToolCallCard = ({
   const content = ask && answerLines ? answerLines : raw
   const long = content.length > MAX_PREVIEW
   const input = call.input as Record<string, unknown> | undefined
-  const hasInput = input && Object.keys(input).length > 0
+  const hasInput = input && Object.keys(input).some((key) => key !== 'purpose')
+  const change = readChange(result)
+  const taskId =
+    call.taskId ?? (typeof result?.meta?.taskId === 'string' ? result.meta.taskId : '')
+  const running = call.status === 'running' || call.status === 'awaiting'
 
   return (
     <div className={clsx(styles.wrap, !isLast && styles.withLine)} data-status={call.status}>
-      <span className={styles.dot} aria-hidden>
-        <span className={styles.dotInner} />
-      </span>
-      <div className={styles.card}>
-        <button type="button" className={styles.head} onClick={toggle} aria-expanded={open}>
-          <span className={styles.icon}>{toolIcon(call.name, call.source)}</span>
-          <span className={styles.titles}>
-            <span className={styles.label}>{label}</span>
-            <span className={styles.arg}>{describeToolInput(call.input)}</span>
-          </span>
-          <span className={styles.status}>
-            <span className={styles.pulse} aria-hidden />
-            {statusText(call.status, call.name, {
-              waiting: t('askUserWaiting'),
-              answered: t('askUserAnswered'),
-            })}
-          </span>
-          {duration !== undefined ? (
-            <span className={styles.duration}>{formatDuration(duration)}</span>
-          ) : null}
-          <span className={styles.chevron}>
-            {open ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
-          </span>
-        </button>
-
-        {open ? (
-          <div className={styles.body}>
-            {ask ? (
-              <div className={styles.section}>
-                <span className={styles.sectionTitle}>{t('agentToolQuestion')}</span>
-                <p className={styles.askQuestion}>{ask.question}</p>
-                {ask.options.length > 0 ? (
-                  <div className={styles.chips}>
-                    {ask.options.map((option) => (
-                      <span key={option} className={styles.chip}>
-                        {option}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : hasInput ? (
-              <div className={styles.section}>
-                <span className={styles.sectionTitle}>{t('agentToolArgs')}</span>
-                <pre className={styles.code}>{JSON.stringify(call.input, null, 2)}</pre>
-              </div>
-            ) : null}
-            {call.progress && call.status === 'running' ? (
-              <div className={styles.progress}>{call.progress}</div>
-            ) : null}
-            {content ? (
-              <div className={styles.section}>
-                <span className={styles.sectionTitle}>{t('agentToolResult')}</span>
-                <pre className={clsx(styles.code, styles.result)}>
-                  {expanded || !long ? content : `${content.slice(0, MAX_PREVIEW)}…`}
-                </pre>
-                {long ? (
-                  <button
-                    type="button"
-                    className={styles.more}
-                    onClick={() => setExpanded((value) => !value)}
-                  >
-                    {expanded ? t('agentToolCollapse') : t('agentToolExpand')}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-            {result?.artifacts?.length ? (
-              // 卡片内只提示产物，完整卡片统一在消息尾部展示，避免重复
-              <div className={styles.artifacts}>
-                <span className={styles.sectionTitle}>{t('agentToolArtifacts')}</span>
-                <span className={styles.artifactNames}>
-                  {result.artifacts.map((artifact) => artifact.name).join('、')}
-                </span>
-              </div>
-            ) : null}
-          </div>
+      <div className={styles.head} onClick={toggle} role="button" tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            toggle()
+          }
+        }}
+        aria-expanded={open}
+      >
+        <span className={styles.icon}>{toolIcon(call.name, call.source)}</span>
+        <span className={styles.purpose}>{purpose || label}</span>
+        {change ? (
+          <button
+            type="button"
+            className={styles.change}
+            title={`${change.path} — 打开 diff`}
+            onClick={(event) => {
+              event.stopPropagation()
+              openWorkspaceFile(change.path)
+            }}
+          >
+            <span className={styles.add}>+{change.additions}</span>
+            <span className={styles.del}>−{change.deletions}</span>
+          </button>
+        ) : arg && purpose ? (
+          <span className={styles.arg}>{arg}</span>
         ) : null}
+        {call.detached ? (
+          <span className={styles.badge}>{t('toolDetached')}</span>
+        ) : null}
+        <span className={styles.status}>
+          <span className={styles.pulse} aria-hidden />
+          {statusText(call.status, call.name, {
+            waiting: t('askUserWaiting'),
+            answered: t('askUserAnswered'),
+            detached: t('toolDetached'),
+          })}
+        </span>
+        {duration !== undefined ? (
+          <span className={styles.duration}>{formatDuration(duration)}</span>
+        ) : null}
+        {running && taskId ? (
+          <button
+            type="button"
+            className={styles.detach}
+            title={t('toolSendToBackground')}
+            onClick={(event) => {
+              event.stopPropagation()
+              detachTask(taskId)
+            }}
+          >
+            {t('toolSendToBackground')}
+          </button>
+        ) : null}
+        <span className={styles.chevron}>
+          {open ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
+        </span>
       </div>
+
+      {open ? (
+        <div className={styles.body}>
+          {ask ? (
+            <div className={styles.section}>
+              <span className={styles.sectionTitle}>{t('agentToolQuestion')}</span>
+              <p className={styles.askQuestion}>{ask.question}</p>
+              {ask.options.length > 0 ? (
+                <div className={styles.chips}>
+                  {ask.options.map((option) => (
+                    <span key={option} className={styles.chip}>
+                      {option}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : hasInput ? (
+            <div className={styles.section}>
+              <span className={styles.sectionTitle}>{t('agentToolArgs')}</span>
+              <pre className={styles.code}>
+                {JSON.stringify(
+                  Object.fromEntries(
+                    Object.entries(call.input as Record<string, unknown>).filter(
+                      ([key]) => key !== 'purpose'
+                    )
+                  ),
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
+          ) : null}
+          {call.progress && call.status === 'running' ? (
+            <div className={styles.progress}>{call.progress}</div>
+          ) : null}
+          {content ? (
+            <div className={styles.section}>
+              <span className={styles.sectionTitle}>{t('agentToolResult')}</span>
+              <pre className={styles.code}>
+                {expanded || !long ? content : `${content.slice(0, MAX_PREVIEW)}…`}
+              </pre>
+              {long ? (
+                <button
+                  type="button"
+                  className={styles.more}
+                  onClick={() => setExpanded((value) => !value)}
+                >
+                  {expanded ? t('agentToolCollapse') : t('agentToolExpand')}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {result?.images?.length ? (
+            <div className={styles.images}>
+              {result.images.map((image, index) => (
+                <img
+                  key={`${image.name ?? 'image'}-${index}`}
+                  className={styles.image}
+                  src={`data:${image.mediaType};base64,${image.data}`}
+                  alt={image.name ?? 'tool image'}
+                />
+              ))}
+            </div>
+          ) : null}
+          {result?.artifacts?.length ? (
+            // 卡片内只提示产物，完整卡片统一在消息尾部展示，避免重复
+            <div className={styles.artifacts}>
+              <span className={styles.sectionTitle}>{t('agentToolArtifacts')}</span>
+              <span className={styles.artifactNames}>
+                {result.artifacts.map((artifact) => artifact.name).join('、')}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
