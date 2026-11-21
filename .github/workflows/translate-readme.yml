@@ -4,13 +4,12 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "README.md" # 仅在中文 README 变更时触发
-  workflow_dispatch: # 支持在 Actions 页面手动点击触发测试
+      - "README.md"
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
-  models: read # 【关键】必须要有这个权限，才能免费使用 GitHub Models
 
 jobs:
   translate:
@@ -20,25 +19,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Translate README
-        id: translate
-        uses: FidelusAleksander/ai-translate-action@v1
-        env:
-          # 【关键修改】强制将请求指向 GitHub Models 的接口，解决 Connection error
-          OPENAI_BASE_URL: https://models.inference.ai.azure.com
-          OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          text-file: "README.md"
-          target-language: "English"
-          custom-instructions: "Keep technical terms in English. Do not translate code blocks."
-          token: ${{ secrets.GITHUB_TOKEN }}
+          python-version: '3.10'
 
-      - name: Save translated file
+      - name: Install dependencies
         run: |
-          mkdir -p docs
-          echo "$TRANSLATED_TEXT" > docs/README.en.md
-        env:
-          TRANSLATED_TEXT: ${{ steps.translate.outputs.translated-text }}
+          python -m pip install --upgrade pip
+          pip install deep-translator
+
+      - name: Run translation script
+        run: python scripts/translate.py
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
