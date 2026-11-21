@@ -278,6 +278,7 @@ export const zh = {
   agentDisconnected: '未连接',
   agentConnecting: '连接中',
   agentConnectFailed: '连接失败',
+  routeSessionMissing: '链接里的对话不存在或已被删除',
   agentDesktopUrl: '服务地址',
   agentDesktopToken: '访问令牌',
   agentDesktopConnect: '连接本机',

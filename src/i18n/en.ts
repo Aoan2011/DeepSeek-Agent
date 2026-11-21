@@ -287,6 +287,7 @@ export const en = {
   agentDisconnected: 'Disconnected',
   agentConnecting: 'Connecting',
   agentConnectFailed: 'Connection failed',
+  routeSessionMissing: 'The conversation in this link no longer exists',
   agentDesktopUrl: 'Endpoint',
   agentDesktopToken: 'Access token',
   agentDesktopConnect: 'Connect',

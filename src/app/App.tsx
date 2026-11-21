@@ -36,6 +36,7 @@ import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
 import { closeMobileSider } from '../components/sider/mobileSiderState.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
+import { initRouter } from './router.js'
 import styles from './App.module.css'
 
 export const App = () => {
@@ -97,6 +98,8 @@ export const App = () => {
 
   useEffect(() => {
     void initChat()
+    // 地址栏是会话与设置的唯一真源：放到 initChat 之后，深链接才能落到已加载的列表上
+    initRouter()
     // 首次打开先在设置里输入 API Key
     ensureApiKey()
     // 注册内置工具、扩展桥、桌面端与 MCP
