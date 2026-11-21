@@ -212,6 +212,10 @@ const syncFromStore = () => {
   }
 
   if (route.kind === 'share') {
+    // 分享页上如果有了活动会话（导入完成，或用户从侧栏另选了对话），就离开分享页
+    if (activeId !== null) {
+      navigate({ kind: 'session', id: activeId }, true)
+    }
     return
   }
 
