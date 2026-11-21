@@ -46,7 +46,12 @@ import {
   SystemPromptSetting,
   TokenCounterSetting,
 } from './AgentSettings.js'
-import { AnimSpeedSetting, AnimTogglesSetting } from './AppearanceSettings.js'
+import {
+  AnimSpeedSetting,
+  AnimTogglesSetting,
+  GlassSetting,
+  LookSetting,
+} from './AppearanceSettings.js'
 import { SettingCell, ToggleCell } from './SettingCell.js'
 import { WorkspaceSetting } from './WorkspaceSetting.js'
 import { Button } from '../base/Button.js'
@@ -128,6 +133,8 @@ const SettingsContent = () => {
             </>
           ) : section === 'appearance' ? (
             <>
+              <LookSetting />
+              <GlassSetting />
               <MotionSetting />
               <AnimSpeedSetting />
               <AnimTogglesSetting />

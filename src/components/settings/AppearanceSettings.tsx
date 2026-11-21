@@ -1,6 +1,16 @@
+import clsx from 'clsx'
 import type { CSSProperties } from 'react'
 import { useTranslate, type TranslationKey } from '../../i18n/index.js'
-import { setAnimSpeed, toggleAnim, useSettings, type AnimSettings } from '../../services/settings.js'
+import {
+  setAnimSpeed,
+  setGlass,
+  setLook,
+  toggleAnim,
+  useSettings,
+  type AnimSettings,
+  type GlassPreference,
+  type LookPreference,
+} from '../../services/settings.js'
 import { ToggleCell } from './SettingCell.js'
 import styles from './Settings.module.css'
 
@@ -54,5 +64,78 @@ export const AnimTogglesSetting = () => {
         />
       ))}
     </>
+  )
+}
+
+const LOOKS: { value: LookPreference; label: TranslationKey }[] = [
+  { value: 'calm', label: 'settingsLookCalm' },
+  { value: 'aurora', label: 'settingsLookAurora' },
+]
+
+/** 视觉风格：默认中性克制；原来的极光与彩色渐变保留为可选项 */
+export const LookSetting = () => {
+  const t = useTranslate()
+  const look = useSettings((state) => state.look)
+  return (
+    <div className={styles.cell}>
+      <div className={styles.theme}>
+        {t('settingsLook')}
+        <div role="radiogroup" aria-label={t('settingsLook')} className={styles.themeOptions}>
+          {LOOKS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={look === option.value}
+              className={clsx(
+                styles.themeOption,
+                look === option.value && styles.themeOptionSelected
+              )}
+              onClick={() => setLook(option.value)}
+            >
+              {t(option.label)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={styles.description}>{t('settingsLookHint')}</div>
+    </div>
+  )
+}
+
+const GLASS: { value: GlassPreference; label: TranslationKey }[] = [
+  { value: 'refract', label: 'settingsGlassRefract' },
+  { value: 'frost', label: 'settingsGlassBlur' },
+  { value: 'off', label: 'settingsGlassOff' },
+]
+
+/** 玻璃强度：折射最像真玻璃，毛玻璃与关闭用来在低配设备上换流畅度 */
+export const GlassSetting = () => {
+  const t = useTranslate()
+  const glass = useSettings((state) => state.glass)
+  return (
+    <div className={styles.cell}>
+      <div className={styles.theme}>
+        {t('settingsGlass')}
+        <div role="radiogroup" aria-label={t('settingsGlass')} className={styles.themeOptions}>
+          {GLASS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={glass === option.value}
+              className={clsx(
+                styles.themeOption,
+                glass === option.value && styles.themeOptionSelected
+              )}
+              onClick={() => setGlass(option.value)}
+            >
+              {t(option.label)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={styles.description}>{t('settingsGlassHint')}</div>
+    </div>
   )
 }

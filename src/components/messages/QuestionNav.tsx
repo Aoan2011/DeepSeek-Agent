@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
+import { useGlassAttach } from '../glass/useLiquidGlass.js'
 import styles from './QuestionNav.module.css'
 
 export type QuestionNavItem = {
@@ -23,6 +24,8 @@ export const QuestionNav = ({
 }) => {
   const t = useTranslate()
   const [expanded, setExpanded] = useState(false)
+  // 只有展开时才挂玻璃：收起状态是一列细刻度，加玻璃反而糊成一片
+  const glassRef = useGlassAttach({ tint: 0.14 })
 
   return (
     <div
@@ -40,7 +43,7 @@ export const QuestionNav = ({
         }
       }}
     >
-      <div className={styles.list}>
+      <div ref={(el) => glassRef(expanded ? el : null)} className={`${styles.list} lg`}>
         {items.map((item) => (
           <button
             key={item.id}

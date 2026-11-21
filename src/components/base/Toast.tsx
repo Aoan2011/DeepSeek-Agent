@@ -8,7 +8,7 @@ import styles from './Toast.module.css'
 export const Toast = () => {
   const t = useTranslate()
   const { id, message } = useToast()
-  const glassRef = useGlassAttach({ tier: 'blur', frostBlur: 16, tint: 0.2 })
+  const glassRef = useGlassAttach({ tier: 'blur', tint: 0.2 })
   if (!message) {
     return null
   }

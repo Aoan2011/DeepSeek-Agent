@@ -33,7 +33,7 @@ export const Modal = ({
   const t = useTranslate()
   const titleId = useId()
   // 弹窗是一大片玻璃：面板、设置、工作区都复用它
-  const glassRef = useGlassAttach({ tint: 0.16, frostBlur: 22 })
+  const glassRef = useGlassAttach({ tint: 0.16 })
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   useEffect(() => {

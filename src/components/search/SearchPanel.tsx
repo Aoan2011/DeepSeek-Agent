@@ -12,7 +12,7 @@ export const SearchPanel = () => {
   const entry = useSearchPanel((state) => state.entry)
   const sources = useSearchPanel((state) => state.sources)
   // 右侧结果面板也是一片玻璃：叠在消息区上，底下的内容会透出来
-  const glassRef = useGlassAttach({ tint: 0.14, frostBlur: 18 })
+  const glassRef = useGlassAttach({ tint: 0.14 })
   if (!entry) {
     return null
   }
