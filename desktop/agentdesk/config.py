@@ -24,8 +24,17 @@ def config_path() -> Path:
     return app_dir() / "config.json"
 
 
+def _is_hidden(path: Path) -> bool:
+    """隐藏目录基本是配置/缓存目录，不该出现在工作区选择器里。"""
+    return path.name.startswith(".")
+
+
 def default_sandbox() -> Path:
-    return Path(os.environ.get("AGENTDESK_SANDBOX", Path.home() / "AgentWorkspace")).expanduser()
+    """沙箱根；如果不小心指到了应用自己的配置目录，退回默认工作区。"""
+    raw = Path(os.environ.get("AGENTDESK_SANDBOX", Path.home() / "AgentWorkspace")).expanduser()
+    if _is_hidden(raw) or raw.resolve() == app_dir().resolve():
+        return Path.home() / "AgentWorkspace"
+    return raw
 
 
 def default_workspaces() -> list[Path]:
@@ -35,7 +44,9 @@ def default_workspaces() -> list[Path]:
     for item in extra.split(os.pathsep):
         text = item.strip()
         if text:
-            roots.append(Path(text).expanduser())
+            candidate = Path(text).expanduser()
+            if not _is_hidden(candidate):
+                roots.append(candidate)
     return roots
 
 
@@ -70,12 +81,29 @@ class Settings:
     workspaces: list[Path] = field(default_factory=default_workspaces)
 
     def configured_workspaces(self) -> list[Path]:
-        """合并 config.json 里的 workspaces，去重并保持顺序。"""
+        """合并 config.json 里的 workspaces，去重并保持顺序。
+
+        隐藏目录（~/.agentdesk、~/.agentdesktop 这类配置目录）直接跳过：
+        它们以前会被当成工作区显示在网页端的选择器里，看起来像是「工作区一直是 .agentdesk」。
+        """
+        candidates = [
+            *self.workspaces,
+            *[
+                Path(item).expanduser()
+                for item in read_config().get("workspaces", [])
+                if isinstance(item, str)
+            ],
+        ]
         roots: list[Path] = []
-        for path in [*self.workspaces, *[Path(item).expanduser() for item in read_config().get("workspaces", []) if isinstance(item, str)]]:
+        config_dir = app_dir().resolve()
+        for path in candidates:
             resolved = path.expanduser()
+            if _is_hidden(resolved) or resolved.resolve() == config_dir:
+                continue
             if resolved not in roots:
                 roots.append(resolved)
+        if not roots:
+            roots.append(default_sandbox())
         return roots
 
     def describe(self) -> dict:
