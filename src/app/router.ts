@@ -15,6 +15,7 @@
  * 双向同步时容易自己触发自己。这里只监听 popstate（前进/后退）。
  */
 
+import { useSyncExternalStore } from 'react'
 import { closeSettings, useSettingsDialog, type SettingsSection } from '../components/settings/settingsDialogState.js'
 import { initChat, newChat, selectSession, useChatStore } from '../services/chat/store.js'
 import { showToast } from '../components/base/toastState.js'
@@ -86,6 +87,21 @@ export const routeToHash = (route: Route): string => {
 /** 当前地址对应的路由 */
 export const currentRoute = (): Route => parseRoute(window.location.hash)
 
+/** 路由快照：界面要跟着地址栏走（比如分享页），不能只在 store 里改 */
+let snapshot: Route = currentRoute()
+const listeners = new Set<() => void>()
+const publish = (route: Route) => {
+  snapshot = route
+  for (const listener of [...listeners]) {
+    listener()
+  }
+}
+const subscribeRoute = (listener: () => void) => {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+export const useRoute = () => useSyncExternalStore(subscribeRoute, () => snapshot, () => snapshot)
+
 export const navigate = (route: Route, replace = false) => {
   const hash = routeToHash(route)
   if (window.location.hash === hash) {
@@ -97,6 +113,7 @@ export const navigate = (route: Route, replace = false) => {
   } else {
     window.history.pushState(null, '', hash)
   }
+  publish(route)
 }
 
 /**
@@ -115,6 +132,7 @@ const withSession = (sessionId: string | null, section: SettingsSection): Route 
 /** 把地址栏读到的东西落到 store 上 */
 const applyRoute = (route: Route) => {
   applying = true
+  publish(route)
   try {
     switch (route.kind) {
       case 'session': {

@@ -478,12 +478,38 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
   }
 }
 
-export const newChat = () => {
-  if (!get().importingHistory) {
+/**
+ * 导入一段分享来的对话：先落库再切过去。
+ * 保存失败也留在内存里，用户仍能查看，下一次编辑会再存一遍。
+ */
+export const importSharedSession = async (session: Session): Promise<void> => {
+  if (get().importingHistory) {
+    return
+  }
+  set((state) => ({
+    sessions: sortSessions([
+      toSessionSummary(session),
+      ...state.sessions.filter((item) => item.id !== session.id),
+    ]),
+    sessionCache: { ...state.sessionCache, [session.id]: session },
+    activeId: session.id,
+  }))
+  touchSession(session.id)
+  try {
+    await db.saveSession(session)
+  } catch (error) {
+    db.reportStorageError('save session')(error)
+  }
+}
+
+export const newChat = () => {  if (!get().importingHistory) {
     set({ activeId: null })
     trimSessionCache()
   }
 }
+
+/** 不切换界面的详情读取：分享、导出这类动作需要完整消息但不想打断当前会话 */
+export const loadSessionDetail = (id: string): Promise<void> => ensureSessionLoaded(id)
 
 export const selectSession = (id: string) => {
   if (!get().importingHistory && get().sessions.some((session) => session.id === id)) {

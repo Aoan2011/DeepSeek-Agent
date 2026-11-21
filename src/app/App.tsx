@@ -36,7 +36,9 @@ import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
 import { closeMobileSider } from '../components/sider/mobileSiderState.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
-import { initRouter } from './router.js'
+import { ShareDialog } from '../components/share/ShareDialog.js'
+import { ShareLanding } from '../components/share/ShareLanding.js'
+import { initRouter, useRoute } from './router.js'
 import styles from './App.module.css'
 
 export const App = () => {
@@ -64,6 +66,8 @@ export const App = () => {
     state.activeId === null ? false : Object.hasOwn(state.streaming, state.activeId)
   )
   const activeId = useChatStore((state) => state.activeId)
+  // 分享链接是一层独立页面：不走会话视图，避免先闪一下欢迎页
+  const route = useRoute()
 
   usePreventPageScroll(isMobile)
 
@@ -130,7 +134,8 @@ export const App = () => {
           ) : null}
           <div className={styles.content}>
             {siderCollapsed ? <CollapsedSider /> : null}
-            {!ready || (activeId !== null && !session) ? (
+            {route.kind === 'share' ? <ShareLanding payload={route.payload} /> : null}
+            {route.kind !== 'share' && (!ready || (activeId !== null && !session)) ? (
               <div className={styles.loadingView}>
                 {isMobile ? <MobileHeader /> : null}
                 <div className={styles.loadingState} role="status" aria-live="polite">
@@ -156,7 +161,7 @@ export const App = () => {
                   ) : null}
                 </div>
               </div>
-            ) : session ? (
+            ) : route.kind === 'share' ? null : session ? (
               <SessionView
                 session={session}
                 streaming={streaming}
@@ -170,6 +175,7 @@ export const App = () => {
         <SearchPanel />
       </div>
       <SettingsDialog />
+      <ShareDialog />
       <AgentPanel />
       <TaskPanel />
       <GoalPanel />

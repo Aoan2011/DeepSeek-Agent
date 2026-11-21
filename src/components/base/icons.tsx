@@ -554,3 +554,17 @@ export const IconShieldFull = () => (
     />
   </svg>
 )
+
+export const IconShareOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="11.9" cy="3.6" r="1.9" stroke="currentColor" strokeWidth={1.3} />
+    <circle cx="4.1" cy="8" r="1.9" stroke="currentColor" strokeWidth={1.3} />
+    <circle cx="11.9" cy="12.4" r="1.9" stroke="currentColor" strokeWidth={1.3} />
+    <path
+      d="M5.8 7.05 10.2 4.55M5.8 8.95l4.4 2.5"
+      stroke="currentColor"
+      strokeWidth={1.3}
+      strokeLinecap="round"
+    />
+  </svg>
+)
