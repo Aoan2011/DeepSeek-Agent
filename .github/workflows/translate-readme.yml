@@ -5,12 +5,12 @@ on:
     branches: [ main ]
     paths:
       - "README.md" # 仅在中文 README 变更时触发
-  workflow_dispatch: # 也可以手动触发测试
+  workflow_dispatch: # 支持在 Actions 页面手动点击触发测试
 
 permissions:
   contents: write
   pull-requests: write
-  models: read # ai-translate-action 使用 GitHub Models 所需权限
+  models: read # 【关键】必须要有这个权限，才能免费使用 GitHub Models
 
 jobs:
   translate:
@@ -23,10 +23,15 @@ jobs:
       - name: Translate README
         id: translate
         uses: FidelusAleksander/ai-translate-action@v1
+        env:
+          # 【关键修改】强制将请求指向 GitHub Models 的接口，解决 Connection error
+          OPENAI_BASE_URL: https://models.inference.ai.azure.com
+          OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
         with:
           text-file: "README.md"
           target-language: "English"
           custom-instructions: "Keep technical terms in English. Do not translate code blocks."
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Save translated file
         run: |
