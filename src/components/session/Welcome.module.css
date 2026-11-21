@@ -372,3 +372,59 @@ html[data-motion='reduced'] .badgeDot,
 html[data-motion='reduced'] .greetingText::after {
   animation: none !important;
 }
+
+/* ---------- 克制风格：欢迎页不再像落地页 ---------- */
+body[data-look='calm'] .greeting {
+  font-size: 23px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+body[data-look='calm'] .badge {
+  border-color: var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+body[data-look='calm'] .badgeDot {
+  box-shadow: none;
+  animation: none;
+}
+
+body[data-look='calm'] .greetingText::after {
+  display: none;
+}
+
+body[data-look='calm'] .cap {
+  border-radius: 8px;
+  background: transparent;
+}
+
+body[data-look='calm'] .cap:hover {
+  transform: none;
+  border-color: var(--dsw-alias-border-l3);
+  box-shadow: none;
+}
+
+body[data-look='calm'] .quickCard {
+  background: var(--dsw-alias-bg-layer-2);
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+body[data-look='calm'] .quickCard::before {
+  display: none;
+}
+
+body[data-look='calm'] .quickCard:hover {
+  transform: none;
+  border-color: var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-interactive-bg-hover);
+  box-shadow: none;
+}
+
+body[data-look='calm'][data-ds-dark-theme] .quickCard,
+body[data-look='calm'][data-ds-dark-theme] .quickCard:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--dsw-alias-border-l2);
+}

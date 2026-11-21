@@ -1,0 +1,23 @@
+/**
+ * 通用玻璃表面。
+ *
+ * 组件只负责加上 .lg 类名，backdrop-filter 由 useGlassAttach / useLiquidGlass 写入。
+ * 底色用当前主题的表面色做半透明，这样亮暗两套主题、克制与极光两种风格都不用各写一遍。
+ */
+
+.lg[data-glass] {
+  background-color: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 76%, transparent);
+}
+
+.lg[data-glass='frost'] {
+  background-color: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 94%, transparent);
+}
+
+/* 玻璃需要自己的层叠上下文，否则折射会把底下的阴影一起位移 */
+.lg[data-glass] {
+  isolation: isolate;
+}
+
+body[data-look='calm'] .lg[data-glass] {
+  border-color: var(--dsw-alias-border-l2);
+}

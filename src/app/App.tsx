@@ -43,6 +43,8 @@ export const App = () => {
   const t = useTranslate()
   const isMobile = useIsMobile()
   const locale = useSettings((state) => state.locale)
+  // 极光背景只在「极光」风格下渲染：默认风格不需要，还能省掉三层大面积模糊
+  const look = useSettings((state) => state.look)
   // 移动端侧边栏以独立抽屉管理开合状态
   const siderCollapsed = useSettings((state) => state.siderCollapsed) && !isMobile
   const ready = useChatStore((state) => state.ready)
@@ -111,9 +113,8 @@ export const App = () => {
   return (
     <>
       <div ref={frameRef} className={styles.frame}>
-        <Aurora />
-        {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}
-        <main className={styles.main}>
+        {look === 'aurora' ? <Aurora /> : null}
+        {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}        <main className={styles.main}>
           {saveError ? (
             <div className={styles.saveError} role="alert">
               <span>{t('sessionSaveFailed')}</span>

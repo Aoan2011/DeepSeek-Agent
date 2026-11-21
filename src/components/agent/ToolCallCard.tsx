@@ -7,43 +7,14 @@ import { detachTask } from '../../services/agent/tasks.js'
 import { IconChevronDownOutline14, IconChevronRightOutline14 } from '../base/icons.js'
 import { openWorkspaceFile } from '../workspace/workspacePanelState.js'
 import { toolIcon } from './ToolIcons.js'
+import { describeToolStatus } from './toolStatus.js'
 import styles from './ToolCallCard.module.css'
 
 const formatDuration = (ms: number) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`)
 
-const statusText = (
-  status: ToolCallPart['status'],
-  name: string,
-  labels: { waiting: string; answered: string; detached: string }
-) => {
-  if (name === 'ask_user') {
-    if (status === 'running') {
-      return labels.waiting
-    }
-    if (status === 'done') {
-      return labels.answered
-    }
-  }
-  switch (status) {
-    case 'awaiting':
-      return '等待确认'
-    case 'running':
-      return '执行中'
-    case 'done':
-      return '完成'
-    case 'error':
-      return '失败'
-    case 'denied':
-      return '已拒绝'
-    default:
-      return '准备中'
-  }
-}
-
 const MAX_PREVIEW = 900
 
-/** ask_user 的参数改投影到卡片上：问题 + 选项，比原始 JSON 好读 */
-const readAsk = (input: unknown) => {
+/** ask_user 的参数改投影到卡片上：问题 + 选项，比原始 JSON 好读 */const readAsk = (input: unknown) => {
   if (!input || typeof input !== 'object') {
     return null
   }
@@ -65,24 +36,9 @@ const readAsk = (input: unknown) => {
   }
 }
 
-/** 文件改动的行数统计，来自工具结果的 meta */
-const readChange = (result?: ToolResultPart) => {
-  const meta = result?.meta
-  if (!meta) {
-    return null
-  }
-  const path = typeof meta.path === 'string' ? meta.path : ''
-  const additions = typeof meta.additions === 'number' ? meta.additions : null
-  const deletions = typeof meta.deletions === 'number' ? meta.deletions : null
-  if (!path || (additions === null && deletions === null)) {
-    return null
-  }
-  return { path, additions: additions ?? 0, deletions: deletions ?? 0 }
-}
-
 /**
  * 工具调用行：和搜索步骤一样的一条横向行，没有卡片外壳与底色。
- * 结构是「图标 + Agent 给的目的 + 改动统计 + 状态 + 耗时」，点整行展开参数与结果。
+ * 结构是「图标 + Agent 给的目的 + 一句话结果 + 改动统计 + 耗时」，点整行展开参数与结果。
  * 文件改动会显示 +N −M，点它直接打开工作区的 diff。
  */
 export const ToolCallCard = ({
@@ -152,10 +108,25 @@ export const ToolCallCard = ({
   const long = content.length > MAX_PREVIEW
   const input = call.input as Record<string, unknown> | undefined
   const hasInput = input && Object.keys(input).some((key) => key !== 'purpose')
-  const change = readChange(result)
+  const status = describeToolStatus(call, result)
+  const change = status.change
   const taskId =
     call.taskId ?? (typeof result?.meta?.taskId === 'string' ? result.meta.taskId : '')
   const running = call.status === 'running' || call.status === 'awaiting'
+  // 运行中、等待确认、准备中这几态用右侧的动词 + 呼吸点表示；完成后改用行内「已编辑 xxx」
+  const transient = isAskUser
+    ? call.status === 'running' || call.status === 'done'
+      ? call.status === 'running'
+        ? t('askUserWaiting')
+        : t('askUserAnswered')
+      : ''
+    : call.status === 'running'
+      ? t('toolStatusRunning')
+      : call.status === 'awaiting'
+        ? t('toolStatusAwaiting')
+        : call.status === 'pending'
+          ? t('toolStatusPending')
+          : ''
 
   return (
     <div className={clsx(styles.wrap, !isLast && styles.withLine)} data-status={call.status}>
@@ -170,11 +141,19 @@ export const ToolCallCard = ({
       >
         <span className={styles.icon}>{toolIcon(call.name, call.source)}</span>
         <span className={styles.purpose}>{purpose || label}</span>
+        {status.verb || status.target ? (
+          <span className={styles.result}>
+            {status.verb ? <span className={styles.verb}>{t(status.verb)}</span> : null}
+            {status.target ? <span className={styles.target} title={status.target}>{status.target}</span> : null}
+          </span>
+        ) : arg && purpose ? (
+          <span className={styles.arg}>{arg}</span>
+        ) : null}
         {change ? (
           <button
             type="button"
             className={styles.change}
-            title={`${change.path} — 打开 diff`}
+            title={`${change.path} — ${t('toolOpenDiff')}`}
             onClick={(event) => {
               event.stopPropagation()
               openWorkspaceFile(change.path)
@@ -183,20 +162,16 @@ export const ToolCallCard = ({
             <span className={styles.add}>+{change.additions}</span>
             <span className={styles.del}>−{change.deletions}</span>
           </button>
-        ) : arg && purpose ? (
-          <span className={styles.arg}>{arg}</span>
         ) : null}
         {call.detached ? (
           <span className={styles.badge}>{t('toolDetached')}</span>
         ) : null}
-        <span className={styles.status}>
-          <span className={styles.pulse} aria-hidden />
-          {statusText(call.status, call.name, {
-            waiting: t('askUserWaiting'),
-            answered: t('askUserAnswered'),
-            detached: t('toolDetached'),
-          })}
-        </span>
+        {transient ? (
+          <span className={styles.status}>
+            <span className={styles.pulse} aria-hidden />
+            {transient}
+          </span>
+        ) : null}
         {duration !== undefined ? (
           <span className={styles.duration}>{formatDuration(duration)}</span>
         ) : null}

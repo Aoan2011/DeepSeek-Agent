@@ -59,3 +59,8 @@
     transform: translateY(-8px);
   }
 }
+
+/* 玻璃态提示条：深色底也让它半透，透出下面的一点内容 */
+.toast[data-glass] {
+  background-color: color-mix(in srgb, var(--dsw-alias-toast-bg) 86%, transparent);
+}

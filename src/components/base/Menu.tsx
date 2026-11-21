@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
+import { useGlassAttach } from '../glass/useLiquidGlass.js'
 import styles from './Menu.module.css'
 
 export type MenuOption = {
@@ -28,6 +29,8 @@ export const Menu = ({
     { align: 'start', alignOffset: -5, offset: 4 }
   )
   useDismiss(open, [anchorRef, floatingRef], close)
+  // 菜单是薄玻璃：只模糊不折射，尺寸小、数量多，折射在这里没有收益
+  const glassRef = useGlassAttach({ tier: 'frost', frostBlur: 14, tint: 0.18 })
 
   return (
     <>
@@ -37,8 +40,11 @@ export const Menu = ({
       {open
         ? createPortal(
             <div
-              ref={floatingRef}
-              className={styles.menu}
+              ref={(el) => {
+                floatingRef.current = el
+                glassRef(el)
+              }}
+              className={clsx(styles.menu, 'lg')}
               style={position ?? undefined}
               role="menu"
             >

@@ -41,6 +41,7 @@ import { PromptPicker } from './PromptPicker.js'
 import { TaskButton } from './TaskButton.js'
 import { GoalButton } from './GoalButton.js'
 import { useLiquidGlass } from '../glass/useLiquidGlass.js'
+import { messageTarget, playSendFlight } from './sendFlight.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
 
@@ -146,6 +147,19 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       !prepareDraftMessage(getDraft(sessionId), useUploads.getState().tasks)
     ) {
       return
+    }
+    // 先把这一帧的草稿与位置取快照：sendMessage 会清空草稿，动画需要旧值
+    const draft = getDraft(sessionId)
+    const textarea = textareaRef.current
+    if (textarea) {
+      playSendFlight({
+        from: textarea.getBoundingClientRect(),
+        text: draft.text,
+        images: draft.attachments
+          .filter((item) => item.isImage && item.previewUrl)
+          .map((item) => item.previewUrl as string),
+        to: messageTarget(),
+      })
     }
     // 文本与上传完成态由提交动作读取最新快照，不使用上一次渲染的草稿。
     if (!ensureApiKey() || !sendMessage(sessionId)) {

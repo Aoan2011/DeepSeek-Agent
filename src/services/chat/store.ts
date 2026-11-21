@@ -54,11 +54,18 @@ import {
 const MODEL: ChatModel = 'deepseek-flash'
 /** 所有生成请求统一携带的助手身份说明 */
 const BASE_SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
+/**
+ * 工具调用必须带 purpose：它直接变成对话里那一行「图标 + 目的」，是用户唯一能读懂的进度。
+ * 放在基础提示里而不是每个工具描述里，省掉重复的 token。
+ */
+const TOOL_PURPOSE_PROMPT =
+  '每次调用工具都必须填写 purpose：一句不超过 14 个字的短语，说明这次调用要达成什么，会直接显示给用户。不要写工具名，也不要写完整句子。'
 /** 用户自定义提示词与当前目标追加在服务端提示之后 */
 const systemPrompt = () => {
   const extra = useSettings.getState().systemPrompt.trim()
   const base = extra ? `${BASE_SYSTEM_PROMPT}\n\n${extra}` : BASE_SYSTEM_PROMPT
-  return `${base}${goalsPrompt()}`
+  const agent = useSettings.getState().agentEnabled ? `\n\n${TOOL_PURPOSE_PROMPT}` : ''
+  return `${base}${agent}${goalsPrompt()}`
 }
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5

@@ -29,6 +29,12 @@ export type TokenCounterMode = 'fast' | 'exact'
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+/** 视觉风格：calm 中性克制（默认），aurora 保留原来的极光背景 */
+export type LookPreference = 'calm' | 'aurora'
+
+/** 玻璃强度：refract 折射玻璃，frost 只模糊，off 纯色 */
+export type GlassPreference = 'refract' | 'frost' | 'off'
+
 /** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
 type Settings = {
   apiKey: string | null
@@ -63,6 +69,10 @@ type Settings = {
   anim: AnimSettings
   /** 动画时长倍率：0.5 更快，2 更慢 */
   animSpeed: number
+  /** 视觉风格：中性克制 / 原极光 */
+  look: LookPreference
+  /** 液态玻璃强度 */
+  glass: GlassPreference
   /** token 统计方式 */
   tokenCounter: TokenCounterMode
   /** 一轮里最多同时执行多少个工具；1 表示顺序执行 */
@@ -94,6 +104,8 @@ const KEYS = {
   motion: 'chat-agent:motion',
   anim: 'chat-agent:anim',
   animSpeed: 'chat-agent:anim-speed',
+  look: 'chat-agent:look',
+  glass: 'chat-agent:glass',
   tokenCounter: 'chat-agent:token-counter',
   parallelTools: 'chat-agent:parallel-tools',
   backgroundTools: 'chat-agent:background-tools',
@@ -226,6 +238,9 @@ export const useSettings = create<Settings>(() => ({
   motion: read(KEYS.motion) === 'reduced' ? 'reduced' : 'full',
   anim: readAnim(),
   animSpeed: readAnimSpeed(),
+  // 默认中性克制：极光那套太像「AI 生成的落地页」，需要的用户在设置里切回来
+  look: read(KEYS.look) === 'aurora' ? 'aurora' : 'calm',
+  glass: read(KEYS.glass) === 'frost' ? 'frost' : read(KEYS.glass) === 'off' ? 'off' : 'refract',
   // 精确词表 1.5MB，默认走估算，需要时在设置里切换
   tokenCounter: read(KEYS.tokenCounter) === 'exact' ? 'exact' : 'fast',
   parallelTools: clampParallel(Number(read(KEYS.parallelTools) ?? 4)),
@@ -406,6 +421,16 @@ export const setAnimSpeed = (value: number) => {
 export const setTokenCounter = (tokenCounter: TokenCounterMode) => {
   write(KEYS.tokenCounter, tokenCounter)
   useSettings.setState({ tokenCounter })
+}
+
+export const setLook = (look: LookPreference) => {
+  write(KEYS.look, look)
+  useSettings.setState({ look })
+}
+
+export const setGlass = (glass: GlassPreference) => {
+  write(KEYS.glass, glass)
+  useSettings.setState({ glass })
 }
 
 export const setParallelTools = (value: number) => {

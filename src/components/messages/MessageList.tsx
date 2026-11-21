@@ -229,7 +229,7 @@ export const MessageList = ({
       <div className={styles.root}>
         <div ref={isMobile ? undefined : scrollRef} className={styles.container}>
           <div ref={isMobile ? scrollRef : undefined} className={styles.scroll}>
-            <div ref={contentRef} className={styles.column}>
+            <div ref={contentRef} className={styles.column} data-message-list>
               {messages.map((message, index) =>
                 message.role === 'user' ? (
                   <UserMessage

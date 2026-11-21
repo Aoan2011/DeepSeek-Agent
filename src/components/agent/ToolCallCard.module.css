@@ -350,3 +350,42 @@
     animation: none !important;
   }
 }
+
+/* ---------- 行内结果：动词 + 目标 ---------- */
+/* 「已编辑 ChatInput.tsx」这种短句跟在目的后面，比右下角一个「完成」信息量大得多 */
+
+.result {
+  display: inline-flex;
+  flex-shrink: 1;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  margin-left: 8px;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+.verb {
+  flex-shrink: 0;
+  color: var(--dsw-alias-label-caption);
+}
+
+.target {
+  overflow: hidden;
+  max-width: 260px;
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wrap[data-status='error'] .result,
+.wrap[data-status='denied'] .result {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* 有行内结果时目的让出宽度，避免两者一起被截断 */
+.result ~ .status {
+  margin-left: 12px;
+}

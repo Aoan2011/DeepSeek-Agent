@@ -369,3 +369,32 @@ html[data-motion='reduced'] .sweep {
     animation: none;
   }
 }
+
+/* ---------- 克制风格：用中性底 + 左侧竖条表示「在等你」，不再整片紫光 ---------- */
+body[data-look='calm'] .card {
+  --ask-accent: var(--dsw-alias-brand-primary);
+  --ask-accent-soft: var(--dsw-alias-interactive-bg-hover);
+  --ask-accent-line: var(--dsw-alias-border-l3);
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+body[data-look='calm'][data-ds-dark-theme] .card {
+  --ask-accent: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-bg-layer-3);
+}
+
+body[data-look='calm'] .sweep {
+  display: none;
+}
+
+body[data-look='calm'] .send {
+  background: var(--dsw-alias-button-primary-fill);
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+body[data-look='calm'] .send:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover);
+  filter: none;
+}

@@ -227,3 +227,21 @@ body[data-ds-dark-theme] .card {
     background-position: -120% 0;
   }
 }
+
+/* ---------- 克制风格：警告色只留在图标与按钮上 ---------- */
+body[data-look='calm'] .card {
+  --approve-accent: var(--dsw-static-amber-600);
+  --approve-accent-soft: rgba(245, 158, 11, 0.08);
+  --approve-accent-line: var(--dsw-alias-border-l3);
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+body[data-look='calm'][data-ds-dark-theme] .card {
+  --approve-accent: var(--dsw-static-amber-400);
+  background: var(--dsw-alias-bg-layer-3);
+}
+
+body[data-look='calm'] .sweep {
+  display: none;
+}

@@ -22,13 +22,14 @@ const timeoutFor = (definition: ToolDefinition) =>
   (definition.source === 'desktop' ? 300_000 : definition.source === 'mcp' ? 180_000 : 90_000)
 
 /**
- * 每个工具 schema 都会附上一个可选的 purpose 字段。
+ * 每个工具 schema 都会附上一个必填的 purpose 字段。
  * 它只用于界面展示「这次调用要做什么」，执行前会被剥离，不影响工具本身。
+ * 必填是为了让每一行工具调用都有一个人话标题，而不是一串工具名加路径。
  */
 const PURPOSE_SCHEMA = {
   type: 'string',
   description:
-    '用一句简短的中文短语说明这次调用要达成的目的（例如「调整对话界面样式」「读取配置」），会直接显示给用户。',
+    '必填。用一句不超过 14 个字的短语说明这次调用要达成的目的，会直接显示给用户（例如「调整对话界面样式」「读取配置」「跑一遍测试」）。不要写工具名。',
 } as const
 
 /**
@@ -44,6 +45,9 @@ export const buildToolDeclarations = (): ClientToolDefinition[] =>
         typeof schema.properties === 'object' && schema.properties !== null
           ? (schema.properties as Record<string, unknown>)
           : {}
+      const required = Array.isArray(schema.required)
+        ? (schema.required as string[]).filter((key) => key !== 'purpose')
+        : []
       return {
         name: definition.name,
         description: `${definition.description}\n\n[来源：${sourceLabel(definition.source)}${definition.serverName ? ` / ${definition.serverName}` : ''}]`,
@@ -53,6 +57,8 @@ export const buildToolDeclarations = (): ClientToolDefinition[] =>
           properties: Object.hasOwn(properties, 'purpose')
             ? properties
             : { ...properties, purpose: PURPOSE_SCHEMA },
+          // purpose 排在最后：模型按顺序生成参数，最后补一句目的最自然
+          required: [...required, 'purpose'],
         } as ClientToolDefinition['input_schema'],
       }
     })
