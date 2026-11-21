@@ -26,7 +26,7 @@ export const useLiquidGlass = <T extends HTMLElement>(options?: AttachOptions) =
     }
     const handle = createLiquidGlass(
       el,
-      mode === 'frost' ? { ...optionsRef.current, tier: 'frost' } : optionsRef.current
+      mode === 'frost' ? { ...optionsRef.current, tier: 'blur' } : optionsRef.current
     )
     return () => handle.destroy()
   }, [mode])
@@ -61,7 +61,7 @@ export const useGlassAttach = (options?: AttachOptions) => {
       el,
       handle: createLiquidGlass(
         el,
-        mode === 'frost' ? { ...optionsRef.current, tier: 'frost' } : optionsRef.current
+        mode === 'frost' ? { ...optionsRef.current, tier: 'blur' } : optionsRef.current
       ),
     }
   }, [mode, detach])
@@ -81,7 +81,7 @@ export const useGlassAttach = (options?: AttachOptions) => {
         el,
         handle: createLiquidGlass(
           el,
-          mode === 'frost' ? { ...optionsRef.current, tier: 'frost' } : optionsRef.current
+          mode === 'frost' ? { ...optionsRef.current, tier: 'blur' } : optionsRef.current
         ),
       }
     },

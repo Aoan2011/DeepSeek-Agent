@@ -38,7 +38,7 @@ export const Select = <T extends string>({
   >(open, { align: 'end', maxHeight: 320, minSpace: 160 })
   // Esc 只关菜单，不让外层弹窗一起关闭
   useDismiss(open, [anchorRef, floatingRef], () => setOpen(false), { captureEscape: true })
-  const glassRef = useGlassAttach({ tier: 'frost', frostBlur: 14, tint: 0.18 })
+  const glassRef = useGlassAttach({ tier: 'blur', frostBlur: 14, tint: 0.18 })
 
   return (
     <>

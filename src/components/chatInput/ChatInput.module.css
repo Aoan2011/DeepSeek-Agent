@@ -29,7 +29,7 @@
     border-color 0.3s var(--ds-ease-in-out);
 }
 
-.wrapper[data-glass='frost'] {
+.wrapper[data-glass='blur'] {
   /* 不支持 url() 滤镜时多给一点底，保证文字对比度 */
   background-color: rgba(255, 255, 255, 0.72);
 }
@@ -43,7 +43,7 @@ body[data-ds-dark-theme] .wrapper[data-glass] {
     0 16px 36px rgba(0, 0, 0, 0.42);
 }
 
-body[data-ds-dark-theme] .wrapper[data-glass='frost'] {
+body[data-ds-dark-theme] .wrapper[data-glass='blur'] {
   background-color: rgba(30, 32, 38, 0.78);
 }
 
@@ -404,82 +404,4 @@ body[data-ds-dark-theme] .wrapper[data-glass].home {
     opacity: 0.4;
     cursor: not-allowed;
   }
-}
-
-/* ---------- 克制风格：输入框是一片中性玻璃 ---------- */
-/* 去掉白色高光与内阴影，只保留底色、一条发丝边和一层很浅的投影 */
-
-body[data-look='calm'] .wrapper {
-  border-radius: 18px;
-}
-
-body[data-look='calm'] .wrapper[data-glass] {
-  background-color: rgba(255, 255, 255, 0.68);
-  border-color: var(--dsw-alias-border-l2);
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 18px 40px -30px rgba(15, 23, 42, 0.5);
-}
-
-body[data-look='calm'][data-ds-dark-theme] .wrapper[data-glass] {
-  background-color: rgba(26, 28, 32, 0.74);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 20px 44px -30px rgba(0, 0, 0, 0.8);
-}
-
-body[data-look='calm'] .wrapper[data-glass='frost'] {
-  background-color: rgba(255, 255, 255, 0.92);
-}
-
-body[data-look='calm'][data-ds-dark-theme] .wrapper[data-glass='frost'] {
-  background-color: rgba(26, 28, 32, 0.94);
-}
-
-body[data-look='calm'] .wrapper[data-glass]:focus-within {
-  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent),
-    0 18px 40px -30px rgba(15, 23, 42, 0.5);
-}
-
-body[data-look='calm'] .wrapper[data-glass].session,
-body[data-look='calm'] .wrapper[data-glass].home {
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 18px 40px -30px rgba(15, 23, 42, 0.5);
-}
-
-body[data-look='calm'][data-ds-dark-theme] .wrapper[data-glass].session,
-body[data-look='calm'][data-ds-dark-theme] .wrapper[data-glass].home {
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 20px 44px -30px rgba(0, 0, 0, 0.8);
-}
-
-/* 工具条上的胶囊按钮：方形一点，不再是一排圆滚滚的 pill */
-body[data-look='calm'] .toggle {
-  height: 30px;
-  padding: 0 9px;
-  border-color: transparent;
-  border-radius: 8px;
-  color: var(--dsw-alias-label-secondary);
-  font-size: 12.5px;
-}
-
-body[data-look='calm'] .toggle.selected {
-  border-color: var(--dsw-alias-border-l2);
-  background-color: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary);
-}
-
-body[data-look='calm'] .functionRow {
-  padding: 10px 12px 12px;
-}
-
-body[data-look='calm'] .sendButton {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
 }

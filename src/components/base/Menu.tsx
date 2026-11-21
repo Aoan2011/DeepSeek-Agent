@@ -30,7 +30,7 @@ export const Menu = ({
   )
   useDismiss(open, [anchorRef, floatingRef], close)
   // 菜单是薄玻璃：只模糊不折射，尺寸小、数量多，折射在这里没有收益
-  const glassRef = useGlassAttach({ tier: 'frost', frostBlur: 14, tint: 0.18 })
+  const glassRef = useGlassAttach({ tier: 'blur', frostBlur: 14, tint: 0.18 })
 
   return (
     <>
