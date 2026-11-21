@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import type { ToolCallPart, ToolResultPart } from '../../services/chat/types.js'
 import { describeToolInput, readPurpose } from '../../services/agent/runtime.js'
@@ -41,7 +41,7 @@ const MAX_PREVIEW = 900
  * 结构是「图标 + Agent 给的目的 + 一句话结果 + 改动统计 + 耗时」，点整行展开参数与结果。
  * 文件改动会显示 +N −M，点它直接打开工作区的 diff。
  */
-export const ToolCallCard = ({
+export const ToolCallCard = memo(function ToolCallCard({
   call,
   result,
   isLast,
@@ -49,7 +49,7 @@ export const ToolCallCard = ({
   call: ToolCallPart
   result?: ToolResultPart
   isLast: boolean
-}) => {
+}) {
   const t = useTranslate()
   const isAskUser = call.name === 'ask_user'
   const ask = isAskUser ? readAsk(call.input) : null
@@ -270,4 +270,4 @@ export const ToolCallCard = ({
       ) : null}
     </div>
   )
-}
+})

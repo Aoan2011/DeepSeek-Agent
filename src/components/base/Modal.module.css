@@ -66,3 +66,38 @@
   gap: 8px;
   margin-top: 20px;
 }
+
+/* ---------- 移动端：弹窗变成从底部升起的整宽面板 ---------- */
+/* 用 .overlay .content 提高优先级，压过各面板自己的宽度设置 */
+
+@media not all and (min-width: 768px) {
+  .overlay {
+    align-items: flex-end;
+  }
+
+  .overlay .content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88dvh;
+    padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+    border-radius: 18px 18px 0 0;
+    animation: sheetUp 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    opacity: 0.6;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay .content {
+    animation: none !important;
+  }
+}

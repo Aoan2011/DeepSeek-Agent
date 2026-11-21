@@ -389,3 +389,56 @@
 .result ~ .status {
   margin-left: 12px;
 }
+
+/* ---------- 窄屏：工具行折成两行，目的优先 ---------- */
+@media (max-width: 640px) {
+  .head {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 32px;
+    padding: 4px 0;
+    row-gap: 1px;
+  }
+
+  .icon {
+    align-self: center;
+  }
+
+  /* 目的占满第一行剩下的宽度 */
+  .purpose {
+    max-width: calc(100% - 60px);
+  }
+
+  /* 「已编辑 xxx」换到第二行，缩进对齐图标之后 */
+  .result {
+    order: 3;
+    width: 100%;
+    max-width: calc(100% - 26px);
+    margin-left: 20px;
+  }
+
+  .change {
+    order: 4;
+    margin-left: 20px;
+  }
+
+  .target {
+    max-width: 160px;
+  }
+
+  .duration {
+    display: none;
+  }
+
+  .status {
+    margin-left: auto;
+  }
+
+  .chevron {
+    margin-left: 2px;
+  }
+
+  .withLine::after {
+    top: 36px;
+  }
+}

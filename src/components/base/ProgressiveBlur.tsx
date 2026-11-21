@@ -2,8 +2,12 @@ import clsx from 'clsx'
 import type { CSSProperties } from 'react'
 import styles from './ProgressiveBlur.module.css'
 
-/** 层数越多过渡越细腻，但每层都是一次 backdrop-filter，6 层是效果与开销的平衡点 */
-const LAYERS = 6
+/**
+ * 层数越多过渡越细腻，但每层都是一次 backdrop-filter：
+ * 滚动时浏览器每帧都要重新采样这些层的背景，层数直接决定滚动是否跟手。
+ * 4 层在视觉上已经看不出台阶，开销比原来的 6 层少三分之一。
+ */
+const LAYERS = 4
 
 /**
  * 渐进式模糊：多张叠在一起的模糊层，越靠近边缘的那层半径越大，

@@ -105,7 +105,8 @@ export const MessageList = ({
     el.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
   }, [])
 
-  // 滚动时找出「当前读到哪一问」，跨过判定线的最后一条即当前
+  // 用 IntersectionObserver 判断「当前读到哪一问」：之前每帧都要 querySelector + 读 rect，
+  // 长对话滚动时这些同步布局查询就是掉帧的元凶。现在只在进入/离开判定带时回调一次。
   useEffect(() => {
     const el = scrollRef.current
     const ids = questionKey === '' ? [] : questionKey.split('|')
@@ -113,32 +114,36 @@ export const MessageList = ({
       setActiveId(null)
       return
     }
-    let frame = 0
-    const update = () => {
-      frame = 0
-      const edge = el.getBoundingClientRect().top + ACTIVE_OFFSET
-      let current = ids[0]
-      for (const id of ids) {
-        const node = el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(id)}"]`)
-        if (node && node.getBoundingClientRect().top <= edge) {
-          current = id
+    const nodes = ids
+      .map((id) => el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(id)}"]`))
+      .filter((node): node is HTMLElement => node !== null)
+    if (nodes.length === 0) {
+      return
+    }
+    const visible = new Set<string>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = entry.target.getAttribute('data-message-id')
+          if (!id) {
+            continue
+          }
+          if (entry.isIntersecting) {
+            visible.add(id)
+          } else {
+            visible.delete(id)
+          }
         }
-      }
-      setActiveId(current)
+        // 判定带里最靠下的一条就是当前提问
+        setActiveId(ids.filter((id) => visible.has(id)).at(-1) ?? null)
+      },
+      // 顶部留出标题栏高度，底部只留一条很窄的带，等价于「跨过这条线」
+      { root: el, rootMargin: `-${ACTIVE_OFFSET}px 0px -86% 0px`, threshold: 0 }
+    )
+    for (const node of nodes) {
+      observer.observe(node)
     }
-    const onScroll = () => {
-      if (!frame) {
-        frame = requestAnimationFrame(update)
-      }
-    }
-    update()
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      el.removeEventListener('scroll', onScroll)
-      if (frame) {
-        cancelAnimationFrame(frame)
-      }
-    }
+    return () => observer.disconnect()
   }, [questionKey, isMobile])
 
   const scrollToBottom = useCallback(() => {

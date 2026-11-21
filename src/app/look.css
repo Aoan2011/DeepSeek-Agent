@@ -180,3 +180,17 @@ body[data-look='calm'][data-ds-dark-theme] #root {
 body[data-look='calm'] * {
   scrollbar-width: thin;
 }
+
+/* 手机：正文两侧留白再收一点，长句不至于只剩几个字一行 */
+@media (max-width: 480px) {
+  body[data-look='calm'] {
+    --message-list-padding-horizontal: 18px;
+  }
+}
+
+/* 手机：正文两侧留白再收一点，长句不至于只剩几个字一行 */
+@media (max-width: 480px) {
+  body[data-look='calm'] {
+    --message-list-padding-horizontal: 18px;
+  }
+}

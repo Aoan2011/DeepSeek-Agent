@@ -90,3 +90,21 @@ body[data-ds-dark-theme] .title {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ---------- 窄屏：标题只留一行，别把内容区往下顶 ---------- */
+@media (max-width: 640px) {
+  .title {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ---------- 窄屏：标题只留一行，别把内容区往下顶 ---------- */
+@media (max-width: 640px) {
+  .title {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}

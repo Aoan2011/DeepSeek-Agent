@@ -4,6 +4,8 @@
   right: 0;
   z-index: 3;
   overflow: hidden;
+  /* 把模糊层的合成范围锁在自己身上，避免每次滚动都牵连整页重绘 */
+  contain: paint;
   pointer-events: none;
 }
 
