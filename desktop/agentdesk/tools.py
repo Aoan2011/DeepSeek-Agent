@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from . import computer, tools_extra
+from . import computer, tools_extra, tools_port
 from .config import Settings
 from .sandbox import Sandbox, SandboxError
 
@@ -71,7 +71,7 @@ def _text(value: str, *, error: bool = False) -> dict[str, Any]:
 
 def definitions() -> list[dict[str, Any]]:
     read_only = {"readOnlyHint": True}
-    return _builtin_definitions() + tools_extra.definitions()
+    return _builtin_definitions() + tools_extra.definitions() + tools_port.definitions()
 
 
 def _builtin_definitions() -> list[dict[str, Any]]:
@@ -342,6 +342,11 @@ async def _dispatch(name: str, args: dict[str, Any], context: ToolContext) -> di
     extended = await tools_extra.dispatch(name, args, sandbox, settings)
     if extended is not None:
         return extended
+
+    # 从 one_cedric 移植的工具集：检索、计算、时间、编码、数据、文档、图片、二维码
+    ported = await tools_port.dispatch(name, args, sandbox, settings)
+    if ported is not None:
+        return ported
 
     if name == "desk_system_info":
         usage = shutil.disk_usage(sandbox.root)

@@ -64,6 +64,26 @@ const DESKTOP_TOOLS: Record<string, { risk: ToolDefinition['risk']; approval?: b
   desk_text_stats: { risk: 'safe', icon: 'file' },
   desk_clipboard: { risk: 'write', approval: true, icon: 'clipboard' },
   desk_git: { risk: 'safe', icon: 'move' },
+  // one_cedric 移植工具：只读的免确认，落盘与联网的仍要确认
+  desk_glob: { risk: 'safe', icon: 'folder' },
+  desk_diff: { risk: 'safe', icon: 'code' },
+  desk_calculate: { risk: 'safe', icon: 'code' },
+  desk_time: { risk: 'safe', icon: 'clock' },
+  desk_regex: { risk: 'safe', icon: 'search' },
+  desk_codec: { risk: 'safe', icon: 'code' },
+  desk_csv: { risk: 'safe', icon: 'file' },
+  desk_sqlite: { risk: 'safe', icon: 'database' },
+  desk_tree: { risk: 'safe', icon: 'folder' },
+  desk_dupes: { risk: 'safe', icon: 'search' },
+  desk_net: { risk: 'network', icon: 'globe' },
+  desk_password: { risk: 'safe', icon: 'code' },
+  desk_markdown: { risk: 'safe', icon: 'file' },
+  desk_similarity: { risk: 'safe', icon: 'search' },
+  desk_pdf: { risk: 'safe', icon: 'file' },
+  desk_download: { risk: 'network', approval: true, icon: 'download' },
+  desk_image: { risk: 'write', approval: true, icon: 'image' },
+  desk_qr: { risk: 'write', approval: true, icon: 'image' },
+  desk_office: { risk: 'write', approval: true, icon: 'file' },
 }
 
 const toArtifacts = async (

@@ -144,6 +144,35 @@ export const IconAsk = (props: IconProps) => (
   </svg>
 )
 
+
+export const IconSearch = (props: IconProps) => (
+  <svg {...base(props)}>
+    <circle cx="7.2" cy="7.2" r="4.4" />
+    <path d="m10.6 10.6 3 3" />
+  </svg>
+)
+
+export const IconDatabase = (props: IconProps) => (
+  <svg {...base(props)}>
+    <ellipse cx="8" cy="4.2" rx="4.8" ry="1.9" />
+    <path d="M3.2 4.2v7.6c0 1 2.1 1.9 4.8 1.9s4.8-.9 4.8-1.9V4.2M3.2 8c0 1 2.1 1.9 4.8 1.9s4.8-.9 4.8-1.9" />
+  </svg>
+)
+
+export const IconDownload = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M8 2.2v7.2M5.4 7.4 8 10l2.6-2.6M3 12.6h10" />
+  </svg>
+)
+
+export const IconImage = (props: IconProps) => (
+  <svg {...base(props)}>
+    <rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.4" />
+    <circle cx="5.8" cy="6.4" r="1.1" />
+    <path d="m3.4 11.4 3.2-3 2.4 2.2 1.8-1.6 2.8 2.4" />
+  </svg>
+)
+
 /** 按来源或工具名映射图标 */
 export const toolIcon = (name: string, source?: ToolSource) => {
   switch (name) {
@@ -179,6 +208,34 @@ export const toolIcon = (name: string, source?: ToolSource) => {
       return <IconBolt />
     case 'manage_goals':
       return <IconTarget />
+    case 'desk_glob':
+    case 'desk_tree':
+      return <IconFolder />
+    case 'desk_diff':
+    case 'desk_calculate':
+    case 'desk_codec':
+    case 'desk_password':
+    case 'desk_markdown':
+      return <IconCode />
+    case 'desk_time':
+      return <IconClock />
+    case 'desk_regex':
+    case 'desk_dupes':
+    case 'desk_similarity':
+      return <IconSearch />
+    case 'desk_csv':
+    case 'desk_pdf':
+    case 'desk_office':
+      return <IconFile />
+    case 'desk_sqlite':
+      return <IconDatabase />
+    case 'desk_net':
+      return <IconGlobe />
+    case 'desk_download':
+      return <IconDownload />
+    case 'desk_image':
+    case 'desk_qr':
+      return <IconImage />
     case 'browser_screenshot':
     case 'desk_screenshot':
       return <IconCamera />
