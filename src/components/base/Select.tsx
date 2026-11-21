@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
 import { useGlassAttach } from '../glass/useLiquidGlass.js'
@@ -39,6 +39,14 @@ export const Select = <T extends string>({
   // Esc 只关菜单，不让外层弹窗一起关闭
   useDismiss(open, [anchorRef, floatingRef], () => setOpen(false), { captureEscape: true })
   const glassRef = useGlassAttach({ tier: 'blur', tint: 0.18 })
+  // 内联 ref 每次渲染都会重挂玻璃，锚点计算又会在滚动时触发渲染，这里固定下来
+  const menuRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      floatingRef.current = el
+      glassRef(el)
+    },
+    [floatingRef, glassRef]
+  )
 
   return (
     <>
@@ -64,10 +72,7 @@ export const Select = <T extends string>({
       {open && !disabled
         ? createPortal(
             <div
-              ref={(el) => {
-                floatingRef.current = el
-                glassRef(el)
-              }}
+              ref={menuRef}
               className={clsx(styles.menu, 'lg')}
               style={position ?? undefined}
               role="listbox"

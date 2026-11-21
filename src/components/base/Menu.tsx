@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
 import { useGlassAttach } from '../glass/useLiquidGlass.js'
@@ -31,6 +31,14 @@ export const Menu = ({
   useDismiss(open, [anchorRef, floatingRef], close)
   // 菜单是薄玻璃：只模糊不折射，尺寸小、数量多，折射在这里没有收益
   const glassRef = useGlassAttach({ tier: 'blur', tint: 0.18 })
+  // 内联 ref 每次渲染都会重挂玻璃，锚点计算又会在滚动时触发渲染，这里固定下来
+  const menuRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      floatingRef.current = el
+      glassRef(el)
+    },
+    [floatingRef, glassRef]
+  )
 
   return (
     <>
@@ -40,10 +48,7 @@ export const Menu = ({
       {open
         ? createPortal(
             <div
-              ref={(el) => {
-                floatingRef.current = el
-                glassRef(el)
-              }}
+              ref={menuRef}
               className={clsx(styles.menu, 'lg')}
               style={position ?? undefined}
               role="menu"
