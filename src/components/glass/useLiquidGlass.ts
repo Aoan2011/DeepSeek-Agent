@@ -1,27 +1,21 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useSettings } from '../../services/settings.js'
+import { createLiquidGlass, type GlassHandle, type GlassParams } from './liquidGlass.js'
 
 /**
- * 玻璃表面的挂载层。
+ * 液态玻璃的挂载层。
  *
- * 这里只做普通毛玻璃：一层半透明底色 + backdrop-filter 模糊。
- * 之前按元素尺寸生成位移贴图做折射，输入框每长高一行就要重算整张 canvas，
- * 侧栏滚动时也要反复重建，是界面卡顿的主要来源；现在统一走 CSS 滤镜。
- *
- * 两档强度：soft 18px（默认），strong 28px；off 时完全去掉滤镜，只留纯色。
+ * 侧栏、输入框与右侧问题导航用折射玻璃（createLiquidGlass）；
+ * 菜单、Toast 这类小浮层默认只做普通毛玻璃，省掉贴图与滤镜链。
+ * 设置、Agent 能力、工作区三个大面板不经过这里，保持 Modal 里的普通毛玻璃。
  */
 
-const BLUR: Record<'strong' | 'soft', number> = {
-  strong: 28,
-  soft: 18,
-}
-
-/** 毛玻璃：写入 data-glass 供样式层区分，并设置 tint 与模糊半径 */
-export const applyFrost = (el: HTMLElement, tint = 0.11, mode: 'strong' | 'soft' = 'soft') => {
+/** 毛玻璃：不生成位移贴图，只写 data-glass 与 backdrop-filter */
+export const applyFrost = (el: HTMLElement, tint = 0.11) => {
   el.dataset.glass = 'blur'
   el.style.setProperty('--lg-tint', String(tint))
-  el.style.setProperty('backdrop-filter', `blur(${BLUR[mode]}px) saturate(1.4)`)
-  el.style.setProperty('-webkit-backdrop-filter', `blur(${BLUR[mode]}px) saturate(1.4)`)
+  el.style.setProperty('backdrop-filter', 'blur(18px) saturate(1.4)')
+  el.style.setProperty('-webkit-backdrop-filter', 'blur(18px) saturate(1.4)')
 }
 
 const clearGlass = (el: HTMLElement) => {
@@ -31,30 +25,40 @@ const clearGlass = (el: HTMLElement) => {
   el.style.removeProperty('--lg-tint')
 }
 
-export type GlassOptions = {
-  /** 玻璃白度，交给样式层的 --lg-tint */
-  tint?: number
-  /** 模糊强度；默认跟随设置 */
-  mode?: 'strong' | 'soft'
+const noopHandle = (el: HTMLElement): GlassHandle => ({
+  refresh: () => undefined,
+  destroy: () => clearGlass(el),
+})
+
+export type GlassOptions = Partial<GlassParams> & {
+  /** 强制降级为普通毛玻璃：小控件用它，省掉贴图开销 */
+  tier?: 'liquid' | 'frost'
 }
 
-type Attachment = { el: HTMLElement }
+type Mode = 'liquid' | 'frost' | 'off'
 
-const attach = (el: HTMLElement, mode: 'strong' | 'soft' | 'off', options: GlassOptions = {}) => {
+const attach = (el: HTMLElement, mode: Mode, options: GlassOptions = {}): GlassHandle => {
   if (mode === 'off') {
     clearGlass(el)
-    return
+    return { refresh: () => undefined, destroy: () => clearGlass(el) }
   }
-  applyFrost(el, options.tint, options.mode ?? mode)
+  if (mode === 'frost' || options.tier === 'frost') {
+    applyFrost(el, options.tint)
+    return noopHandle(el)
+  }
+  return createLiquidGlass(el, options)
 }
 
+type Attachment = { el: HTMLElement; handle: GlassHandle }
+
 /**
- * 把毛玻璃挂到一个元素上：只改变背景渲染方式，不影响布局与事件。
+ * 把液态玻璃挂到一个元素上：挂载时生成折射贴图，尺寸变化由 ResizeObserver 重建。
+ * 只改变背景的渲染方式，不影响元素本身的布局与事件。
  */
 export const useLiquidGlass = <T extends HTMLElement>(options?: GlassOptions) => {
   const ref = useRef<T>(null)
   const mode = useSettings((state) => state.glass)
-  // 参数只取一次快照，避免每次渲染重复写样式
+  // 参数只取一次快照，避免每次渲染重建贴图
   const optionsRef = useRef(options)
 
   useEffect(() => {
@@ -62,8 +66,8 @@ export const useLiquidGlass = <T extends HTMLElement>(options?: GlassOptions) =>
     if (!el) {
       return
     }
-    attach(el, mode, optionsRef.current)
-    return () => clearGlass(el)
+    const handle = attach(el, mode, optionsRef.current)
+    return () => handle.destroy()
   }, [mode])
 
   return ref
@@ -79,20 +83,18 @@ export const useGlassAttach = (options?: GlassOptions) => {
   const optionsRef = useRef(options)
 
   const detach = useCallback(() => {
-    if (current.current) {
-      clearGlass(current.current.el)
-      current.current = null
-    }
+    current.current?.handle.destroy()
+    current.current = null
   }, [])
 
+  // 设置变化时重建：off → 拆掉，frost/liquid → 按新档位重挂
   useEffect(() => {
     const el = current.current?.el
     detach()
     if (!el) {
       return
     }
-    attach(el, mode, optionsRef.current)
-    current.current = { el }
+    current.current = { el, handle: attach(el, mode, optionsRef.current) }
   }, [mode, detach])
 
   useEffect(() => detach, [detach])
@@ -106,8 +108,7 @@ export const useGlassAttach = (options?: GlassOptions) => {
       if (!el) {
         return
       }
-      attach(el, mode, optionsRef.current)
-      current.current = { el }
+      current.current = { el, handle: attach(el, mode, optionsRef.current) }
     },
     [mode, detach]
   )

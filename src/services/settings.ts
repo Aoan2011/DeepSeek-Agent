@@ -33,8 +33,8 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 /** 视觉风格：calm 中性克制（默认），aurora 保留原来的极光背景 */
 export type LookPreference = 'calm' | 'aurora'
 
-/** 玻璃强度：strong 更厚（28px 模糊），soft 标准（18px），off 纯色 */
-export type GlassPreference = 'strong' | 'soft' | 'off'
+/** 玻璃强度：liquid 折射液态玻璃，frost 普通毛玻璃，off 纯色 */
+export type GlassPreference = 'liquid' | 'frost' | 'off'
 
 /** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
 type Settings = {
@@ -261,13 +261,13 @@ export const useSettings = create<Settings>(() => ({
   animSpeed: readAnimSpeed(),
   // 默认中性克制：极光那套太像「AI 生成的落地页」，需要的用户在设置里切回来
   look: read(KEYS.look) === 'aurora' ? 'aurora' : 'calm',
-  // 默认标准毛玻璃；旧版本存下的 refract/frost 在这里迁移成新的两档
+  // 默认液态玻璃（侧栏、输入框、右侧导航）；设置等大面板始终是普通毛玻璃
   glass:
     read(KEYS.glass) === 'off'
       ? 'off'
-      : read(KEYS.glass) === 'strong' || read(KEYS.glass) === 'refract'
-        ? 'strong'
-        : 'soft',
+      : read(KEYS.glass) === 'frost'
+        ? 'frost'
+        : 'liquid',
   // 精确词表 1.5MB，默认走估算，需要时在设置里切换
   tokenCounter: read(KEYS.tokenCounter) === 'exact' ? 'exact' : 'fast',
   parallelTools: clampParallel(Number(read(KEYS.parallelTools) ?? 4)),

@@ -104,8 +104,8 @@ export const LookSetting = () => {
 }
 
 const GLASS: { value: GlassPreference; label: TranslationKey }[] = [
-  { value: 'strong', label: 'settingsGlassRefract' },
-  { value: 'soft', label: 'settingsGlassBlur' },
+  { value: 'liquid', label: 'settingsGlassRefract' },
+  { value: 'frost', label: 'settingsGlassBlur' },
   { value: 'off', label: 'settingsGlassOff' },
 ]
 

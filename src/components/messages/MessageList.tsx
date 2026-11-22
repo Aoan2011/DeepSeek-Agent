@@ -134,8 +134,9 @@ export const MessageList = ({
             visible.delete(id)
           }
         }
-        // 判定带里最靠下的一条就是当前提问
-        setActiveId(ids.filter((id) => visible.has(id)).at(-1) ?? null)
+        // 判定带里最靠下的一条就是当前提问；没有命中时保留上一条，首次回落到第一条
+        const current = ids.filter((id) => visible.has(id)).at(-1)
+        setActiveId((previous) => current ?? previous ?? ids[0] ?? null)
       },
       // 顶部留出标题栏高度，底部只留一条很窄的带，等价于「跨过这条线」
       { root: el, rootMargin: `-${ACTIVE_OFFSET}px 0px -86% 0px`, threshold: 0 }

@@ -146,36 +146,4 @@ body[data-ds-dark-theme] .nav[data-expanded] .list[data-glass] {
     0 16px 36px rgba(0, 0, 0, 0.42);
 }
 
-/* 展开时当前条目整行提亮，和刻度的高亮互相呼应（截图里的那种选中块） */
-.nav[data-expanded] .list .item[data-active] {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
-}
 
-body[data-ds-dark-theme] .nav[data-expanded] .list .item[data-active] {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 22%, transparent);
-}
-
-.nav[data-expanded] .list .item[data-active]:hover {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
-}
-
-body[data-ds-dark-theme] .nav[data-expanded] .list .item[data-active]:hover {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 28%, transparent);
-}
-
-/* 展开时当前条目整行提亮，和刻度的高亮互相呼应（截图里的那种选中块） */
-.nav[data-expanded] .list .item[data-active] {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
-}
-
-body[data-ds-dark-theme] .nav[data-expanded] .list .item[data-active] {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 22%, transparent);
-}
-
-.nav[data-expanded] .list .item[data-active]:hover {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
-}
-
-body[data-ds-dark-theme] .nav[data-expanded] .list .item[data-active]:hover {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 28%, transparent);
-}

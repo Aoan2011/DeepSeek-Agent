@@ -24,8 +24,8 @@ export const QuestionNav = ({
 }) => {
   const t = useTranslate()
   const [expanded, setExpanded] = useState(false)
-  // 只有展开时才挂玻璃：收起状态是一列细刻度，加玻璃反而糊成一片
-  const glassRef = useGlassAttach({ tint: 0.14 })
+  // 展开时用液态玻璃，和输入框保持同一套材质
+  const glassRef = useGlassAttach({ tier: 'liquid', tint: 0.14 })
   // 内联 ref 每次渲染都会先 null 再挂载，滚动时等于反复重建贴图
   const listRef = useCallback(
     (el: HTMLDivElement | null) => glassRef(expanded ? el : null),
@@ -48,7 +48,7 @@ export const QuestionNav = ({
         }
       }}
     >
-      <div ref={listRef} className={`${styles.list} lg`}>
+      <div ref={listRef} className={styles.list}>
         {items.map((item) => (
           <button
             key={item.id}
