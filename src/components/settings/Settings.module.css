@@ -613,6 +613,16 @@ body[data-ds-dark-theme] .slider input[type='range'] {
 
 .promptHead .text {
   flex: 1;
+  padding-right: 0;
+}
+
+/* 系统提示词预填后是一整段文本：给足编辑高度，同时不把设置页撑出滚动条 */
+.promptInput {
+  min-height: 148px;
+  max-height: 300px;
+  font-family: var(--ds-font-family-code);
+  font-size: 12.5px;
+  line-height: 1.7;
 }
 
 .promptForm {
@@ -704,4 +714,23 @@ body[data-ds-dark-theme] .slider input[type='range'] {
   &:hover {
     color: var(--dsw-alias-state-error-primary);
   }
+}
+
+.pricingLink {
+  flex-shrink: 0;
+  color: var(--dsw-alias-brand-text);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* 预算可以是四位数，数字框比步数框宽一点 */
+.budgetStepper input {
+  width: 58px;
+  text-align: left;
 }

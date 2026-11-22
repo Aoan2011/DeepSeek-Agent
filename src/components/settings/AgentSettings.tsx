@@ -7,6 +7,8 @@ import {
   setTokenCounter,
   useSettings,
 } from '../../services/settings.js'
+import { defaultSystemPrompt } from '../../services/systemPrompt.js'
+import { Button } from '../base/Button.js'
 import { Select } from '../base/Select.js'
 import { Switch } from '../base/Switch.js'
 import { SettingCell } from './SettingCell.js'
@@ -82,20 +84,32 @@ export const TokenCounterSetting = () => {
   )
 }
 
-/** 自定义系统提示词：多行输入，失焦即保存 */
+/** 系统提示词：预填默认文本，用户可逐句修改；失焦即保存 */
 export const SystemPromptSetting = () => {
   const t = useTranslate()
   const value = useSettings((state) => state.systemPrompt)
   return (
     <div className={styles.cell}>
-      <div className={styles.text}>
-        <div className={styles.label}>{t('settingsSystemPrompt')}</div>
-        <div className={styles.description}>{t('settingsSystemPromptHint')}</div>
+      <div className={styles.promptHead}>
+        <div className={styles.text}>
+          <div className={styles.label}>{t('settingsSystemPrompt')}</div>
+          <div className={styles.description}>{t('settingsSystemPromptHint')}</div>
+        </div>
+        <Button
+          variant="outlined"
+          size="s"
+          className={styles.cellButton}
+          disabled={value.trim() === defaultSystemPrompt()}
+          onClick={() => setSystemPrompt(defaultSystemPrompt())}
+        >
+          {t('settingsSystemPromptReset')}
+        </Button>
       </div>
       <textarea
         className={styles.promptInput}
-        rows={3}
+        rows={8}
         value={value}
+        spellCheck={false}
         placeholder={t('settingsSystemPromptPlaceholder')}
         onChange={(event) => setSystemPrompt(event.target.value)}
       />

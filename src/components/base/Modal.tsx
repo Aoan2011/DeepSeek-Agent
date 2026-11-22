@@ -4,11 +4,12 @@ import { createPortal } from 'react-dom'
 import { useTranslate } from '../../i18n/index.js'
 import { IconCloseOutline16 } from './icons.js'
 import { IconButton } from './IconButton.js'
-import { useGlassAttach } from '../glass/useLiquidGlass.js'
 import styles from './Modal.module.css'
 
 /** 当前打开的弹窗，后打开的在末尾；叠放时 Esc 只关闭最上层 */
 const openModals: object[] = []
+/** 弹窗层级：后打开的高一档，避免工作区盖住随后打开的设置 */
+let nextZIndex = 1000
 
 /** 遮罩 + 居中卡片，Esc / 点遮罩关闭 */
 export const Modal = ({
@@ -32,9 +33,14 @@ export const Modal = ({
 }) => {
   const t = useTranslate()
   const titleId = useId()
-  // 弹窗是一大片玻璃：面板、设置、工作区都复用它
-  const glassRef = useGlassAttach({ tint: 0.16 })
+  // 设置、Agent 能力、工作区共用这一层表面：普通毛玻璃，
+  // 不做折射贴图，打开和滚动都只走一次 backdrop-filter。
   const onCloseRef = useRef(onClose)
+  const zIndexRef = useRef(0)
+  if (zIndexRef.current === 0) {
+    nextZIndex += 10
+    zIndexRef.current = nextZIndex
+  }
   onCloseRef.current = onClose
   useEffect(() => {
     const token = {}
@@ -48,17 +54,21 @@ export const Modal = ({
     return () => {
       openModals.splice(openModals.indexOf(token), 1)
       document.removeEventListener('keydown', onKeyDown)
+      // 全部关闭后把层级基数收回来，长时间使用也不会一直涨
+      if (openModals.length === 0) {
+        nextZIndex = 1000
+      }
     }
   }, [])
 
   return createPortal(
     <div
       className={styles.overlay}
+      style={{ zIndex: zIndexRef.current }}
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <div
-        ref={glassRef}
-        className={clsx(styles.content, 'lg', className)}
+        className={clsx(styles.content, className)}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

@@ -384,6 +384,9 @@ body[data-look='calm'] .greeting {
 body[data-look='calm'] .badge {
   border-color: var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-layer-2);
+  /* 装饰性小徽标不需要实时模糊，省掉一次 backdrop-filter 采样 */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 body[data-look='calm'] .badgeDot {
@@ -398,6 +401,8 @@ body[data-look='calm'] .greetingText::after {
 body[data-look='calm'] .cap {
   border-radius: 8px;
   background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 body[data-look='calm'] .cap:hover {
@@ -410,6 +415,8 @@ body[data-look='calm'] .quickCard {
   background: var(--dsw-alias-bg-layer-2);
   border-radius: 10px;
   box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 body[data-look='calm'] .quickCard::before {

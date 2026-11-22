@@ -8,7 +8,7 @@ import styles from './Toast.module.css'
 export const Toast = () => {
   const t = useTranslate()
   const { id, message } = useToast()
-  const glassRef = useGlassAttach({ tier: 'blur', tint: 0.2 })
+  const glassRef = useGlassAttach({ mode: 'soft', tint: 0.2 })
   if (!message) {
     return null
   }
@@ -30,7 +30,7 @@ export const Toast = () => {
       <span className={styles.content}>
         {t(message.key, message.params)}
         {message.link ? (
-          <a className={styles.link} href={message.link.href} target="_blank" rel="noreferrer">
+          <a className={styles.link} href={message.link.href} target="_blank" rel="noopener noreferrer">
             {t(message.link.key)}
           </a>
         ) : null}

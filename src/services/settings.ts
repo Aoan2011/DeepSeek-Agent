@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { TtsVoice } from './api/speech.js'
 import { normalizeLocation, type UserLocation } from './location.js'
+import { migrateSystemPrompt } from './systemPrompt.js'
 
 export type Locale = 'zh-CN' | 'en-US'
 
@@ -32,8 +33,8 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 /** 视觉风格：calm 中性克制（默认），aurora 保留原来的极光背景 */
 export type LookPreference = 'calm' | 'aurora'
 
-/** 玻璃强度：refract 折射玻璃，frost 只模糊，off 纯色 */
-export type GlassPreference = 'refract' | 'frost' | 'off'
+/** 玻璃强度：strong 更厚（28px 模糊），soft 标准（18px），off 纯色 */
+export type GlassPreference = 'strong' | 'soft' | 'off'
 
 /** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
 type Settings = {
@@ -79,7 +80,7 @@ type Settings = {
   parallelTools: number
   /** 长耗时工具自动转入后台任务列表，对话不被阻塞 */
   backgroundTools: boolean
-  /** 用户追加的系统提示词，拼在服务端提示之后 */
+  /** 完整系统提示词；首次打开预填默认文本，用户可直接修改 */
   systemPrompt: string
 }
 
@@ -110,6 +111,7 @@ const KEYS = {
   parallelTools: 'chat-agent:parallel-tools',
   backgroundTools: 'chat-agent:background-tools',
   systemPrompt: 'chat-agent:system-prompt',
+  systemPromptMigrated: 'chat-agent:system-prompt-v2',
 } as const
 
 const read = (key: string) => {
@@ -168,6 +170,25 @@ const initialThemePreference = (): ThemePreference => {
 
 /** 未保存过时使用服务端默认音色 stella（海星） */
 const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide' : 'stella')
+
+/**
+ * 系统提示词的初始值。
+ *
+ * v0.7 之前只存「追加片段」，v0.8 改成存完整提示词。迁移只做一次：
+ * 用 v2 标记区分，之后用户哪怕把身份句删掉，也不会在下次启动时被加回来。
+ */
+const initialSystemPrompt = (): string => {
+  const saved = read(KEYS.systemPrompt)
+  if (read(KEYS.systemPromptMigrated) === '1') {
+    return saved ?? ''
+  }
+  const migrated = migrateSystemPrompt(saved)
+  write(KEYS.systemPromptMigrated, '1')
+  if (migrated !== (saved ?? '')) {
+    write(KEYS.systemPrompt, migrated)
+  }
+  return migrated
+}
 
 /** 默认模型，与实际服务的模型 id 一致 */
 export const DEFAULT_MODEL = 'deepseek-flash'
@@ -240,13 +261,19 @@ export const useSettings = create<Settings>(() => ({
   animSpeed: readAnimSpeed(),
   // 默认中性克制：极光那套太像「AI 生成的落地页」，需要的用户在设置里切回来
   look: read(KEYS.look) === 'aurora' ? 'aurora' : 'calm',
-  glass: read(KEYS.glass) === 'frost' ? 'frost' : read(KEYS.glass) === 'off' ? 'off' : 'refract',
+  // 默认标准毛玻璃；旧版本存下的 refract/frost 在这里迁移成新的两档
+  glass:
+    read(KEYS.glass) === 'off'
+      ? 'off'
+      : read(KEYS.glass) === 'strong' || read(KEYS.glass) === 'refract'
+        ? 'strong'
+        : 'soft',
   // 精确词表 1.5MB，默认走估算，需要时在设置里切换
   tokenCounter: read(KEYS.tokenCounter) === 'exact' ? 'exact' : 'fast',
   parallelTools: clampParallel(Number(read(KEYS.parallelTools) ?? 4)),
   // 默认开启：长任务在后台跑，界面不被占住
   backgroundTools: read(KEYS.backgroundTools) !== 'false',
-  systemPrompt: read(KEYS.systemPrompt) ?? '',
+  systemPrompt: initialSystemPrompt(),
 }))
 
 /** 缺字段时按默认补齐，新增开关对老用户默认打开 */

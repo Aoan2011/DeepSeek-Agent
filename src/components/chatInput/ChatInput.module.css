@@ -234,7 +234,8 @@ body[data-ds-dark-theme] .wrapper[data-glass].home {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  min-height: calc(var(--line-height) * 2 + var(--input-padding-top));
+  /* 默认只占一行，随内容长高；上限约 7 行，避免长文本把整块屏幕顶掉 */
+  min-height: calc(var(--line-height) + var(--input-padding-top));
   margin: 0;
   padding: var(--input-padding-top) 12px 0 16px;
   border: none;
@@ -277,7 +278,7 @@ body[data-ds-dark-theme] .wrapper[data-glass].home {
 .mirror {
   visibility: hidden;
   pointer-events: none;
-  max-height: 336px;
+  max-height: 188px;
 }
 
 @media not all and (min-width: 768px) {

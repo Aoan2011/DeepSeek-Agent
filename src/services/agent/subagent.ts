@@ -7,6 +7,7 @@ import type {
 } from '../api/types.js'
 import type { MessageStreamEvent } from '../api/types.js'
 import { useSettings } from '../settings.js'
+import { defaultSystemPrompt, TOOL_PURPOSE_PROMPT } from '../systemPrompt.js'
 import { clipText } from '../../utils/format.js'
 import { mockStreamMessage } from './mock.js'
 import { listTools, runTool } from './registry.js'
@@ -152,10 +153,13 @@ export const runSubagent = async (input: SubagentInput): Promise<SubagentResult>
     }
     rounds = round
     input.onProgress(`子 Agent 第 ${round} 轮推理`)
+    const shared = settings.systemPrompt.trim()
+    // 默认提示词只属于主对话，不必整段塞给子 Agent；用户改过才共享
+    const custom = shared && shared !== defaultSystemPrompt() ? shared : ''
     const body: CreateMessageRequest = {
       model: SUBAGENT_MODEL,
-      // 主对话的自定义提示词同样影响子 Agent，保证输出风格一致
-      system: `${SYSTEM_PROMPT}\n\n${settings.systemPrompt.trim()}`.trim(),
+      // 子 Agent 保留自己的职责说明，同时继承用户的自定义风格
+      system: [SYSTEM_PROMPT, TOOL_PURPOSE_PROMPT, custom].filter(Boolean).join('\n\n'),
       messages,
       thinking: { type: 'disabled' },
       // 子 Agent 沿用主对话的采样参数，保持输出风格一致
