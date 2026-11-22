@@ -2,7 +2,7 @@ import type { zh } from './zh.js'
 
 export const en = {
   welcomeMessageChat250808: 'How can I help you?',
-  contentCaveat: 'AI-generated, for reference only',
+  contentCaveat: 'AI-generated, for reference only     [Powered by Github Pages]',
   expandSiderbarButton: 'Open sidebar',
   collapseSiderbarButton: 'Close sidebar',
   newChat: 'New chat',
@@ -436,6 +436,10 @@ export const en = {
   approvalNotifyTitle: 'Agent needs your confirmation',
   approvalNotifyBody: '{tool} needs approval to continue',
   // ---- settings groups ----
+  settingsGithub: 'GitHub',
+  settingsGithubHint: 'An agent-ified fork of deepseek-ai/chat-demo; source and docs live on GitHub',
+  settingsGithubOpen: 'Open repository',
+  settingsGithubStars: '★ {count}',
   settingsGroupGeneral: 'General',
   settingsGroupAppearance: 'Appearance & motion',
   settingsGroupAgent: 'Agent',

@@ -128,7 +128,9 @@ Peak hours are 09:00–12:00 and 14:00–18:00 Beijing time, Monday to Friday, e
 ### Performance and motion
 
 - Settings surfaces (Settings, Agent capabilities, Workspaces) use plain frosted glass: one translucent layer plus a single `backdrop-filter`.
-- The sidebar, composer and right-hand question navigator use **liquid-glass refraction** again (canvas displacement map + `backdrop-filter: url(#filter)`), matching the original look.
+- The sidebar, composer and right-hand question navigator use **liquid-glass refraction** again (canvas displacement map + `backdrop-filter: url(#filter)`), matching the original look. The navigator keeps the same glass as the composer at all times.
+- **Progressive blur** now also covers the sidebar session list (only when it overflows) and the scrolling edges of the Settings, Agent-capabilities and task panels.
+- Settings → General ends with a **GitHub card**: repo link plus star count from the public API, cached locally for an hour.
 - Settings → Appearance & motion can switch the glass effect to liquid / frost / off. If the device struggles, frost keeps the same layout with a single blur.
 - The composer starts at one line and grows to about seven; long prompts no longer take over the screen.
 - Settings → **Appearance & motion**: global intensity, animation speed multiplier, and per-feature toggles (aurora, shimmer, transitions, running pulse).

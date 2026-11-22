@@ -39,6 +39,22 @@
   text-align: center;
 }
 
+.listWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.listBlur {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .list {
   display: flex;
   flex-direction: column;

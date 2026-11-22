@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { Modal } from '../base/Modal.js'
+import { ProgressiveBlur } from '../base/ProgressiveBlur.js'
 import { Button } from '../base/Button.js'
 import { IconPlug, IconSpark, toolIcon } from './ToolIcons.js'
 import { getToolsRevision, listTools, subscribeTools } from '../../services/agent/registry.js'
@@ -83,10 +84,28 @@ export const AgentPanel = () => {
           </button>
         ))}
       </div>
-      <div className={styles.body}>
-        {tab === 'tools' ? <ToolsTab /> : null}
-        {tab === 'mcp' ? <McpTab /> : null}
-        {tab === 'connect' ? <ConnectTab /> : null}
+      <div className={styles.bodyWrap}>
+        <div className={styles.body}>
+          {tab === 'tools' ? <ToolsTab /> : null}
+          {tab === 'mcp' ? <McpTab /> : null}
+          {tab === 'connect' ? <ConnectTab /> : null}
+        </div>
+        <ProgressiveBlur
+          direction="top"
+          height={34}
+          blur={12}
+          tint={0.18}
+          className={styles.bodyBlur}
+          style={{ top: 0 }}
+        />
+        <ProgressiveBlur
+          direction="bottom"
+          height={34}
+          blur={12}
+          tint={0.18}
+          className={styles.bodyBlur}
+          style={{ bottom: 0 }}
+        />
       </div>
     </Modal>
   )

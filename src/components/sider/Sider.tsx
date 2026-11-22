@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { IconPanelLeftOutline16, IconSettingsOutline16, NewChatIcon } from '../base/icons.js'
 import { IconFolder, IconSpark } from '../agent/ToolIcons.js'
@@ -15,6 +15,7 @@ import type { SessionSummary } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
 import { Modal } from '../base/Modal.js'
+import { ProgressiveBlur } from '../base/ProgressiveBlur.js'
 import { showToast } from '../base/toastState.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { closeMobileSider, useMobileSider } from './mobileSiderState.js'
@@ -44,6 +45,20 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const liveCount = Number(desktopReady) + Number(mcpReady) + Number(extensionReady)
   // 侧边栏是液态玻璃：整块半透明，靠折射贴图把背后的极光折出厚度
   const glassRef = useLiquidGlass<HTMLDivElement>()
+  // 渐进模糊只在列表真正溢出时出现：空列表上两条暗带非常突兀
+  const listRef = useRef<HTMLDivElement>(null)
+  const [listOverflow, setListOverflow] = useState(false)
+  useEffect(() => {
+    const el = listRef.current
+    if (!el) {
+      return
+    }
+    const update = () => setListOverflow(el.scrollHeight > el.clientHeight + 1)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [sessions.length])
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -95,7 +110,25 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
         {t('newChat')}
       </button>
       <div className={styles.listWrap}>
-        <div className={styles.list}>
+        {listOverflow ? (
+          <>
+            <ProgressiveBlur
+              direction="top"
+              height={44}
+              blur={10}
+              tint={0.12}
+              className={styles.listBlur}
+            />
+            <ProgressiveBlur
+              direction="bottom"
+              height={56}
+              blur={10}
+              tint={0.12}
+              className={styles.listBlur}
+            />
+          </>
+        ) : null}
+        <div ref={listRef} className={styles.list}>
           {groups.map((group) => (
             <div key={group.key} className={styles.section}>
               <div className={styles.sectionHeader}>{group.label}</div>

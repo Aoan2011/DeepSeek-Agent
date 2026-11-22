@@ -146,6 +146,15 @@ body[data-ds-dark-theme] .sider[data-glass] .newChat:hover {
   margin-top: 24px;
 }
 
+/* 会话滚进顶部标题区 / 底部卡片时逐级虚化 */
+.listBlur {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .list {
   height: 100%;
   margin: 0 -2px;

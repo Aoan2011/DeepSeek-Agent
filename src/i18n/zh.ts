@@ -1,6 +1,6 @@
 export const zh = {
   welcomeMessageChat250808: '今天有什么可以帮到你？',
-  contentCaveat: '内容由 AI 生成，请仔细甄别',
+  contentCaveat: '内容由 AI 生成，请仔细甄别     [Powered by Github Pages]',
   expandSiderbarButton: '打开边栏',
   collapseSiderbarButton: '收起边栏',
   newChat: '开启新对话',
@@ -427,6 +427,10 @@ export const zh = {
   approvalNotifyTitle: 'Agent 等待你的确认',
   approvalNotifyBody: '{tool} 需要授权后才能继续',
   // ---- 设置分组 ----
+  settingsGithub: 'GitHub',
+  settingsGithubHint: '本项目在 deepseek-ai/chat-demo 基础上做 Agent 化改造，源码与文档都在 GitHub 上',
+  settingsGithubOpen: '打开仓库',
+  settingsGithubStars: '★ {count}',
   settingsGroupGeneral: '通用',
   settingsGroupAppearance: '外观与动效',
   settingsGroupAgent: 'Agent',

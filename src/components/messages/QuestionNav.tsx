@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { useGlassAttach } from '../glass/useLiquidGlass.js'
 import styles from './QuestionNav.module.css'
@@ -24,13 +24,8 @@ export const QuestionNav = ({
 }) => {
   const t = useTranslate()
   const [expanded, setExpanded] = useState(false)
-  // 展开时用液态玻璃，和输入框保持同一套材质
-  const glassRef = useGlassAttach({ tier: 'liquid', tint: 0.14 })
-  // 内联 ref 每次渲染都会先 null 再挂载，滚动时等于反复重建贴图
-  const listRef = useCallback(
-    (el: HTMLDivElement | null) => glassRef(expanded ? el : null),
-    [glassRef, expanded]
-  )
+  // 常驻液态玻璃：参数与输入框完全一致（同一组默认值），收起与展开都是同一块玻璃
+  const glassRef = useGlassAttach()
 
   return (
     <div
@@ -48,7 +43,7 @@ export const QuestionNav = ({
         }
       }}
     >
-      <div ref={listRef} className={styles.list}>
+      <div ref={glassRef} className={styles.list}>
         {items.map((item) => (
           <button
             key={item.id}

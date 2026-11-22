@@ -59,6 +59,22 @@
   }
 }
 
+.contentWrap {
+  position: relative;
+  display: flex;
+  flex: 1 0 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.edgeBlur {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .content {
   display: flex;
   flex: 1 0 0;

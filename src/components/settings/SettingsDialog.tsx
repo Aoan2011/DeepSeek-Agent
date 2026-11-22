@@ -52,6 +52,8 @@ import {
   GlassSetting,
   LookSetting,
 } from './AppearanceSettings.js'
+import { GithubSetting } from './GithubSetting.js'
+import { ProgressiveBlur } from '../base/ProgressiveBlur.js'
 import { SettingCell, ToggleCell } from './SettingCell.js'
 import { UsageSetting } from './UsageSetting.js'
 import { WorkspaceSetting } from './WorkspaceSetting.js'
@@ -124,6 +126,7 @@ const SettingsContent = () => {
             </button>
           ))}
         </div>
+        <div className={styles.contentWrap}>
         <div role="tabpanel" className={styles.content}>
           {section === 'general' ? (
             <>
@@ -132,6 +135,7 @@ const SettingsContent = () => {
               <TtsVoiceSetting />
               <LocationSetting />
               <UsageSetting />
+              <GithubSetting />
             </>
           ) : section === 'appearance' ? (
             <>
@@ -179,6 +183,23 @@ const SettingsContent = () => {
               {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
             </>
           )}
+        </div>
+        <ProgressiveBlur
+          direction="top"
+          height={34}
+          blur={12}
+          tint={0.18}
+          className={styles.edgeBlur}
+          style={{ top: 0 }}
+        />
+        <ProgressiveBlur
+          direction="bottom"
+          height={34}
+          blur={12}
+          tint={0.18}
+          className={styles.edgeBlur}
+          style={{ bottom: 0 }}
+        />
         </div>
       </Modal>
       {historyImport.file ? <ImportConfirm historyImport={historyImport} /> : null}
