@@ -37,18 +37,18 @@ python -m agentdesk
 
 Then open the agent panel → **Desktop** in the web UI and connect with the printed URL and token. Every destructive tool asks for approval first; commands that are obviously irreversible are blocked even after approval.
 
-Available tools (23 in total):
+Available tools (48 in total):
 
-| Group | Tools |
-| --- | --- |
-| Files | `fs_read` `fs_list` `fs_stat` `fs_write` `fs_delete` `fs_move` |
-| Execution | `shell_exec` `python_exec` |
-| System | `system_info` `process_list` `text_stats` |
-| Screen | `screen_capture` `mouse` `keyboard` `window` |
-| Data | `hash` `grep` `archive` `json_query` `clipboard` |
-| Network | `net_probe` |
-| Git | `git` (read-only: status / log / diff / branch / show) |
-| Workspace | `workspace` (list / switch between configured roots) |
+- **Files & workspaces**: `fs_read` `fs_list` `fs_stat` `fs_write` `fs_delete` `fs_move` `glob` `tree` `dupes` `replace` `workspace`
+- **Execution & system**: `shell_exec` `python_exec` `system_info` `process_list` `system` `cron` `text_stats`
+- **Search & format**: `grep` `diff` `calculate` `time` `regex` `codec` `csv` `sqlite` `markdown` `similarity`
+- **Data**: `hash` `archive` `json_query` `json` `text` `clipboard` `password`
+- **Network**: `net_probe` `net` `http` `download`
+- **Media**: `pdf` `image` `qr` `office`
+- **Screen & input**: `screen_capture` `mouse` `keyboard` `window`
+- **Git**: `git` (read-only: status / log / diff / branch / show)
+
+`replace` previews every change by default (`dry_run=true`); `http` only reaches public addresses and validates redirects, so a page cannot lure the agent into hitting localhost or cloud metadata endpoints.
 
 Every command runs inside a sandbox directory (`~/AgentWorkspace` by default). Paths are resolved and checked, so `..` and absolute escapes are rejected; `~/.skills` is allow-listed read-only.
 
@@ -77,7 +77,8 @@ Load it via `chrome://extensions` → Developer mode → Load unpacked → `exte
 - **Compact tool rows.** Each call is a single line — icon, the purpose the model wrote for it, status and duration — matching the search-step rows instead of a separate card. Click to expand arguments and output.
 - **Inline diffs.** File edits show `+N / −M` and open the workspace diff for that exact file when clicked.
 - **Parallel execution.** Up to 8 tools per round (configurable). Approvals are still requested one at a time so the confirmation panel never stacks.
-- **Background tasks.** Long-running tools move to the task panel (manually, or automatically after 20 s). Chat is not blocked; the panel shows live progress, lets you cancel, inspect the output and hand the result back to the agent.
+- **Background tasks.** Long-running tools move to the task panel (manually, or automatically after 20 s). Chat is not blocked; the panel shows live progress, lets you cancel, inspect the output and hand the result back to the agent. The model can inspect the same tasks through `task_status` (list / read output) and cancel them with `task_cancel`.
+- **Model & reasoning picker.** The composer footer shows `model · level`; clicking it opens one panel with the model list and a purple/blue gradient reasoning slider (off / low / medium / high / max), modelled on the reference video.
 - **Subagents** via `spawn_subagent`: independent context, read-only tools by default, only the conclusion returns — and they show up in the task panel too.
 - **Agent-built tools** via `create_tool`: the model composes existing tools into a new named tool (no generated code), which is registered and reusable. `delete_tool` removes it.
 - **Inline previews** via `preview_file`: code, Markdown, HTML pages, images and CSV are rendered in a widget at the bottom of the answer.
@@ -126,8 +127,9 @@ Peak hours are 09:00–12:00 and 14:00–18:00 Beijing time, Monday to Friday, e
 
 ### Performance and motion
 
-- Settings surfaces (Settings, Agent capabilities, Workspaces) use plain frosted glass: one translucent layer plus a single `backdrop-filter`, no displacement maps or per-element canvas work.
-- Glass strength is now two blur levels (heavy 28px / standard 18px) or off; the old refraction path has been removed, which was the main source of input and scroll jank.
+- Settings surfaces (Settings, Agent capabilities, Workspaces) use plain frosted glass: one translucent layer plus a single `backdrop-filter`.
+- The sidebar, composer and right-hand question navigator use **liquid-glass refraction** again (canvas displacement map + `backdrop-filter: url(#filter)`), matching the original look.
+- Settings → Appearance & motion can switch the glass effect to liquid / frost / off. If the device struggles, frost keeps the same layout with a single blur.
 - The composer starts at one line and grows to about seven; long prompts no longer take over the screen.
 - Settings → **Appearance & motion**: global intensity, animation speed multiplier, and per-feature toggles (aurora, shimmer, transitions, running pulse).
 - Reduced motion is honoured from the OS as well; `html[data-motion]` and the `--ds-anim-scale` variable drive every animation.

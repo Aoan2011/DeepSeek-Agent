@@ -19,7 +19,7 @@
 | 浏览器内置工具 | 时间日期、定位、天气、通知、剪贴板、网页抓取、文件产物读写等，无需任何后端 |
 | 本地工具集 | 从 one_cedric 移植 26 个纯浏览器工具：计算、随机数、密码、哈希、编码、JSON / CSV、文本统计与相似度、cron、二维码等 |
 | 用量与预算 | 侧栏底部按 DeepSeek 官网价估算花费，显示预算进度、今日用量、高峰 / 空闲时段与下一次切换倒计时 |
-| 毛玻璃与性能 | 设置、Agent 能力、工作区统一为普通毛玻璃；移除折射贴图与逐元素 canvas，输入框压缩到一行起步 |
+| 玻璃与性能 | 设置、Agent 能力、工作区用普通毛玻璃；侧栏、输入框、右侧导航恢复液态玻璃折射。输入框压缩到一行起步 |
 | 浏览器扩展 | 读取当前网页、总结、点击输入、滚动、整页截图、标签页管理 |
 | 桌面端（Python + rich） | 本机文件读写改删、命令执行、Python 执行、目录沙箱、本地 stdio MCP 桥接 |
 | MCP 客户端 | 远程 Streamable HTTP / SSE 服务器，以及经桌面端桥接的本地 stdio 服务器 |
@@ -38,12 +38,13 @@
 | Monaco diff | 懒加载 Monaco DiffEditor：删除行红底、新增行绿底，实时 `+N −M` 统计，可并排或行内 |
 | 实时状态条 | 输入框下方每秒刷新输入 / 输出 token、首字延迟、缓存命中率、瞬时速度与用时，另有防抖 220ms 的草稿 token；只订阅运行状态切片，流式过程中不再整条重渲染。速度取最近 1.2s 的差分，停顿时落回 0，跑完显示整轮平均 |
 | 上下文占用 | 输入框右下角的圆环按模型窗口折算本轮上下文的占用，超过 60% 变琥珀、85% 变红 |
-| 液态玻璃 | 侧边栏与输入框用 canvas 位移贴图 + `backdrop-filter: url(#filter)` 做真实折射，参数 0.45 / 0.60 / 0.6 / 0.11 / 1px |
+| 液态玻璃 | 侧边栏、输入框与右侧问题导航用 canvas 位移贴图 + `backdrop-filter: url(#filter)` 做真实折射；设置、Agent 能力、工作区保持普通毛玻璃 |
 | 渐进式模糊 | 对话顶部与输入框下方各叠一组渐变蒙版的模糊层，内容滚进标题栏或输入区时逐级虚化 |
-| 问题导航 | 消息区右侧一列刻度对应每一条提问，当前读到哪条就亮哪条；悬停展开成问题列表，点一下平滑滚到该条 |
+| 问题导航 | 消息区右侧一列刻度对应每一条提问，当前读到哪条就亮哪条；悬停展开成液态玻璃问题列表，点一下平滑滚到该条 |
 | 运行时设置 | 设置里的「Agent」分组：工具调用开关、执行权限、最大步数、并行工具数、后台执行、token 统计、自定义提示词、温度与 Top P、演示模式 |
 | 流式文字动画 | 新到的文字从偏下位置轻微上浮并解除高斯模糊，落位时回弹一下 |
-| 模型选择 | 下拉切换模型，支持从远端 `/models` 拉取并缓存，失败时回落到内置列表 |
+| 模型选择 | 输入框底部一行显示「模型 · 推理等级」，点开是模型列表 + 紫蓝渐变滑杆；支持远端 `/models` 拉取并缓存 |
+| 后台任务 | 工具可转入后台，模型也能用 `task_status` 查看进度与输出、用 `task_cancel` 取消，不必等用户转述 |
 | 思考强度 | 深度思考按钮展开五档轨道，真实下发 `reasoning_effort` 与思考预算，满档提示额度消耗 |
 | 视觉效果 | 极光背景、光标柔光、标题流光、消息入场、执行脉冲，并尊重「精简动效」设置 |
 | 动效调节 | 设置里可调动画速度倍率（0.5×-2×），并逐项开关光斑 / 流光 / 过渡 / 脉冲；系统「减少动态效果」同样生效 |
@@ -223,11 +224,11 @@ python -m agentdesk --serve-web ../dist   # 同时托管构建产物
 http://localhost:8090/?desktop=ws%3A//127.0.0.1%3A8765&token=<令牌>
 ```
 
-提供 23 个本机工具，连接后工具面板会出现独立的「本机桌面端」分组。
+提供 48 个本机工具，连接后工具面板会出现独立的「本机桌面端」分组。
 
 文件与执行（9 个）：`desk_fs_read`、`desk_fs_list`、`desk_fs_stat`、`desk_fs_write`、`desk_fs_delete`、`desk_fs_move`、`desk_shell_exec`、`desk_python_exec`、`desk_system_info`。
 
-数据与诊断（9 个，参考 one-cedric3 移植）：
+数据与诊断（16 个，参考 one-cedric3 移植）：
 
 | 工具 | 作用 |
 | --- | --- |
@@ -235,12 +236,20 @@ http://localhost:8090/?desktop=ws%3A//127.0.0.1%3A8765&token=<令牌>
 | `desk_grep` | 沙箱内按正则搜内容，返回文件:行号，自动跳过二进制与大目录 |
 | `desk_archive` | zip 列表 / 解压 / 打包，解压时拦截 `../` 路径穿越 |
 | `desk_json_query` | 点号路径取值，例如 `data.items.0.name` |
+| `desk_json` | JSON 美化 / 压缩 / 校验 / 两份对比 |
+| `desk_text` | 词频、行去重、清不可见字符、`{{变量}}` 模板渲染 |
+| `desk_cron` | 5 段 cron 接下来几次执行时间 |
+| `desk_system` | 运行环境、CPU/内存/磁盘快照、指定路径磁盘占用 |
+| `desk_http` | GET/POST 等请求，只允许公网地址并校验跳转 |
+| `desk_replace` | 批量查找替换，默认只预览，确认后才写回 |
 | `desk_net_probe` | HTTP 状态码与耗时、DNS 解析、TCP 端口连通性 |
 | `desk_process_list` | 进程占用排行，有 psutil 时更准 |
 | `desk_text_stats` | 行数、字符数、词数、字节与估算 token |
 | `desk_clipboard` | 读写系统剪贴板（读需要确认） |
 | `desk_git` | 只读 git 查询：status / log / diff / branch / show |
 | `desk_workspace` | 列出 / 切换本机工作区；额外目录写在 `~/.agentdesk/config.json` 的 `workspaces` 或 `AGENTDESK_WORKSPACES` 里 |
+
+检索与格式（19 个）：`desk_glob`、`desk_diff`、`desk_calculate`、`desk_time`、`desk_regex`、`desk_codec`、`desk_csv`、`desk_sqlite`、`desk_tree`、`desk_dupes`、`desk_download`、`desk_net`、`desk_password`、`desk_markdown`、`desk_similarity`、`desk_pdf`、`desk_image`、`desk_qr`、`desk_office`。
 
 电脑操作（4 个）：
 
