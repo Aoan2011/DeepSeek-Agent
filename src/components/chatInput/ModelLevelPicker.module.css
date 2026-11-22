@@ -1,14 +1,15 @@
-/* 模型 + 推理等级：收起时是输入框底部的一行文字，展开后是一张玻璃面板 */
+/* 模型 + 推理等级：收起时是输入框底部的一行文字，展开后是一张磨砂面板 */
+
 .trigger {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   gap: 5px;
   max-width: 230px;
-  height: 34px;
-  padding: 0 8px;
+  height: 32px;
+  padding: 0 7px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 9px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
@@ -36,18 +37,14 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 500;
+  font-weight: 450;
 }
 
-.separator {
-  flex-shrink: 0;
-  color: var(--dsw-alias-label-caption);
-}
-
+/* 等级文字跟着档位换色：越低越蓝，越高越紫 */
 .level {
   flex-shrink: 0;
-  color: var(--dsw-alias-brand-text);
-  font-weight: 600;
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .arrow {
@@ -56,6 +53,11 @@
   align-items: center;
   color: var(--dsw-alias-label-caption);
   transition: transform 0.18s ease;
+}
+
+.arrow svg {
+  width: 12px;
+  height: 12px;
 }
 
 .open .arrow {
@@ -74,111 +76,343 @@
   position: fixed;
   z-index: 1050;
   box-sizing: border-box;
-  width: 302px;
-  padding: 12px;
+  width: 268px;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 16px;
-  background: var(--dsw-specific-menu);
+  background: rgba(255, 255, 255, 0.9);
   box-shadow:
-    0 20px 52px rgba(20, 24, 45, 0.2),
-    0 2px 8px rgba(20, 24, 45, 0.08);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  animation: panelIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+    0 18px 48px rgba(15, 23, 42, 0.16),
+    0 2px 6px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  animation: panelIn 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 body[data-ds-dark-theme] .panel {
-  background: rgba(24, 26, 32, 0.94);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(47, 48, 51, 0.92);
+  border-color: rgba(255, 255, 255, 0.06);
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.panel[data-max] {
-  box-shadow:
-    0 20px 56px rgba(91, 71, 235, 0.3),
-    0 0 0 1px rgba(124, 92, 255, 0.16),
-    0 2px 8px rgba(20, 24, 45, 0.08);
+    0 24px 56px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 @keyframes panelIn {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: translateY(6px) scale(0.985);
   }
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+/* 第一行：模型 */
 
-.row {
+.modelRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 26px;
+  height: 32px;
+  padding: 0 4px;
 }
 
 .rowLabel {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 11.5px;
-  line-height: 16px;
-}
-
-.rowValue {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 200px;
-  padding: 2px 4px;
-  overflow: hidden;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
+  flex-shrink: 0;
   color: var(--dsw-alias-label-primary);
-  font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 18px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-
-.rowValue:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.rowArrow {
-  display: inline-flex;
-  align-items: center;
-  color: var(--dsw-alias-label-caption);
-  transition: transform 0.18s ease;
-}
-
-.rowArrow[data-open] {
-  transform: rotate(180deg);
-}
-
-.levelValue {
-  color: #7c5cff;
-  font-size: 12.5px;
   font-weight: 600;
 }
 
-body[data-ds-dark-theme] .levelValue {
-  color: #b9a6ff;
+.modelValue {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.modelValue:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.modelName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--dsw-alias-label-caption);
+}
+
+.chevron svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* 第二块：推理等级卡片 */
+
+.card {
+  margin-top: 4px;
+  padding: 8px 8px 9px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 13px;
+  background: rgba(15, 23, 42, 0.035);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+body[data-ds-dark-theme] .card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.card[data-glow] {
+  border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.card[data-max] {
+  border-color: color-mix(in srgb, var(--accent) 74%, transparent);
+  box-shadow:
+    inset 0 0 16px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+    0 10px 26px -14px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* 深色主题的 .card 规则优先级更高，这里把强调色再补一层 */
+body[data-ds-dark-theme] .card[data-glow] {
+  border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+body[data-ds-dark-theme] .card[data-max] {
+  border-color: color-mix(in srgb, var(--accent) 74%, transparent);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 20px;
+  margin-bottom: 7px;
+  padding: 0 1px;
+}
+
+.levelRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.levelValue {
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+/* 关闭档用中性色，避免一个蓝色「关闭」显得像可点击状态 */
+.panel:not([data-level]) .levelValue {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* 满档时标题被这句提示替换，和视频一致 */
+.warning {
+  height: 20px;
+  margin-bottom: 7px;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ---------- 滑杆 ---------- */
+
+.slider {
+  position: relative;
+  height: 28px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* 轨道本身就是那条厚胶囊：视频里没有额外的外框 */
+.track {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.09);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.2s ease;
+}
+
+body[data-ds-dark-theme] .track {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: #3e3f44;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.slider:hover .track {
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.slider:focus-within .track {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+/*
+ * 填充是一整条渐变，按当前档位裁掉右侧。
+ * 这样低档只露出蓝色段，越高越往紫色/品红走，和视频里的取色一致。
+ */
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--grad-from), var(--grad-to));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 2px rgba(20, 16, 48, 0.16);
+  clip-path: inset(
+    0 calc(100% - 13px - (100% - 26px) * var(--p)) 0 0 round 999px
+  );
+}
+
+/* 高档位在紫色段浮出细小的白色光点 */
+.stars {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: max(0, calc((var(--p) - 0.4) * 1.8));
+  clip-path: inset(
+    0 calc(100% - 13px - (100% - 26px) * var(--p)) 0 0 round 999px
+  );
+  background-image:
+    radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.95) 0 1.3px, transparent 2px),
+    radial-gradient(circle at 44% 68%, rgba(255, 255, 255, 0.7) 0 1.1px, transparent 1.8px),
+    radial-gradient(circle at 51% 22%, rgba(255, 255, 255, 0.85) 0 1.5px, transparent 2.2px),
+    radial-gradient(circle at 57% 58%, rgba(255, 255, 255, 0.6) 0 1.1px, transparent 1.8px),
+    radial-gradient(circle at 63% 80%, rgba(255, 255, 255, 0.9) 0 1.4px, transparent 2.1px),
+    radial-gradient(circle at 69% 36%, rgba(255, 255, 255, 0.7) 0 1.3px, transparent 2px),
+    radial-gradient(circle at 75% 62%, rgba(255, 255, 255, 0.95) 0 1.6px, transparent 2.3px),
+    radial-gradient(circle at 82% 26%, rgba(255, 255, 255, 0.6) 0 1.1px, transparent 1.8px),
+    radial-gradient(circle at 88% 54%, rgba(255, 255, 255, 0.85) 0 1.4px, transparent 2.1px),
+    radial-gradient(circle at 94% 74%, rgba(255, 255, 255, 0.7) 0 1.3px, transparent 2px);
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* 未到达的档位用小圆点标出来 */
+.dot {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.22);
+  transform: translate(-50%, -50%);
+}
+
+body[data-ds-dark-theme] .dot {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.thumb {
+  position: absolute;
+  top: 50%;
+  left: calc(13px + (100% - 26px) * var(--p));
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.28),
+    0 0 0 0.5px rgba(15, 23, 42, 0.06);
+  transform: translate(-50%, -50%);
+  transition: transform 0.12s ease;
+  pointer-events: none;
+}
+
+.slider:hover .thumb {
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+/* 原生 range 只负责取值和拖拽，视觉完全由上面的层决定 */
+.range {
+  position: absolute;
+  top: 0;
+  left: 13px;
+  width: calc(100% - 26px);
+  height: 28px;
+  margin: 0;
+  opacity: 0;
+  cursor: grab;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.range:active {
+  cursor: grabbing;
+}
+
+/* ---------- 模型子页 ---------- */
+
+.sub {
+  display: flex;
+  flex-direction: column;
+}
+
+.subHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 2px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.back:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.back svg {
+  width: 13px;
+  height: 13px;
+  transform: rotate(180deg);
 }
 
 .models {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 188px;
-  margin-top: 2px;
+  gap: 1px;
+  max-height: 196px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -189,7 +423,7 @@ body[data-ds-dark-theme] .levelValue {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  padding: 7px 8px;
+  padding: 6px 7px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -209,7 +443,7 @@ body[data-ds-dark-theme] .levelValue {
 
 .optionActive > svg {
   flex-shrink: 0;
-  color: var(--dsw-alias-brand-text);
+  color: var(--accent);
 }
 
 .optionMain {
@@ -221,7 +455,7 @@ body[data-ds-dark-theme] .levelValue {
 
 .optionName {
   overflow: hidden;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 18px;
   font-weight: 500;
   text-overflow: ellipsis;
@@ -242,7 +476,9 @@ body[data-ds-dark-theme] .levelValue {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 1px;
+  margin-top: 4px;
+  padding: 4px 4px 0;
+  border-top: 1px solid var(--dsw-alias-border-l2);
 }
 
 .source {
@@ -295,124 +531,60 @@ body[data-ds-dark-theme] .levelValue {
   }
 }
 
-.divider {
-  height: 1px;
-  margin: 10px 0;
-  background: var(--dsw-alias-border-l2);
+/* ---------- 等级配色 ---------- */
+
+.trigger,
+.panel {
+  --accent: hsl(var(--accent-h, 220) 90% 46%);
+  --accent-soft: hsl(var(--accent-h, 220) 90% 46% / 0.18);
+  /* 默认（0 档）是中性灰，真正显示前就被滑块盖住了 */
+  --grad-from: #7a7b84;
+  --grad-to: #8f9099;
 }
 
-/* ---------- 推理等级滑杆 ---------- */
-
-.sliderWrap {
-  position: relative;
-  height: 34px;
-  margin: 2px 0 0;
-  cursor: pointer;
+body[data-ds-dark-theme] .trigger,
+body[data-ds-dark-theme] .panel {
+  --accent: hsl(var(--accent-h, 220) 92% 70%);
+  --accent-soft: hsl(var(--accent-h, 220) 92% 70% / 0.2);
 }
 
-.track {
-  position: absolute;
-  top: 50%;
-  left: 6px;
-  right: 6px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(109, 92, 255, 0.16);
-  box-shadow: inset 0 1px 2px rgba(20, 16, 48, 0.12);
-  transform: translateY(-50%);
+/* 滑杆的起止色逐档偏紫，和视频里 Low 纯蓝、Ultra 深紫的变化一致 */
+.panel[data-level='1'] {
+  --grad-from: #4391fe;
+  --grad-to: #5aa2ff;
 }
 
-body[data-ds-dark-theme] .track {
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+.panel[data-level='2'] {
+  --grad-from: #4f72e8;
+  --grad-to: #a97eff;
 }
 
-.fill {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: calc(100% * var(--p));
-  overflow: hidden;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 56%, #a855f7 84%, #e9d5ff 100%);
-  transition: width 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+.panel[data-level='3'] {
+  --grad-from: #4e4bc0;
+  --grad-to: #ba6bfe;
 }
 
-/* 满档时前端更亮，像视频里的 Ultra 状态 */
-.panel[data-max] .fill {
-  background: linear-gradient(90deg, #6d28d9 0%, #8b5cf6 48%, #d8b4fe 82%, #ffffff 100%);
+.panel[data-level='4'] {
+  --grad-from: #482499;
+  --grad-to: #c084fc;
 }
 
-.glow {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: calc(100% * var(--p));
-  height: 20px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, rgba(79, 70, 229, 0.3), rgba(168, 85, 247, 0.36));
-  filter: blur(9px);
-  transform: translateY(-50%);
-  opacity: 0.7;
-  transition:
-    width 0.16s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.2s ease;
-  pointer-events: none;
+.trigger[data-level='1'],
+.panel[data-level='1'] {
+  --accent-h: 216;
 }
 
-.panel[data-max] .glow {
-  opacity: 1;
-  background: linear-gradient(90deg, rgba(109, 40, 217, 0.36), rgba(255, 255, 255, 0.4));
+.trigger[data-level='2'],
+.panel[data-level='2'] {
+  --accent-h: 233;
 }
 
-.thumb {
-  position: absolute;
-  top: 50%;
-  left: calc(100% * var(--p));
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow:
-    0 1px 4px rgba(20, 16, 48, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.7),
-    0 0 12px rgba(168, 85, 247, 0.45);
-  transform: translate(-50%, -50%);
-  transition: left 0.16s cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
+.trigger[data-level='3'],
+.panel[data-level='3'] {
+  --accent-h: 262;
 }
 
-.panel[data-max] .thumb {
-  box-shadow:
-    0 1px 4px rgba(20, 16, 48, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.9),
-    0 0 18px rgba(196, 181, 253, 0.85);
-}
-
-.range {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-.hint {
-  color: var(--dsw-alias-label-caption);
-  font-size: 10.5px;
-  line-height: 15px;
-}
-
-.hint[data-warn] {
-  color: #7c5cff;
-  font-weight: 500;
-}
-
-body[data-ds-dark-theme] .hint[data-warn] {
-  color: #b9a6ff;
+.trigger[data-level='4'],
+.panel[data-level='4'] {
+  --accent-h: 283;
 }
