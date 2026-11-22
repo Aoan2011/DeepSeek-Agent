@@ -102,21 +102,6 @@ body[data-ds-dark-theme] .titleIcon {
   font-weight: 400;
 }
 
-.bodyWrap {
-  position: relative;
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-
-.bodyBlur {
-  position: absolute;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
 .body {
   flex: 1;
   padding: 16px;

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { Modal } from '../base/Modal.js'
-import { ProgressiveBlur } from '../base/ProgressiveBlur.js'
 import { Button } from '../base/Button.js'
 import {
   cancelTask,
@@ -76,23 +75,6 @@ export const TaskPanel = () => {
         <div className={styles.empty}>{t('taskPanelEmpty')}</div>
       ) : (
         <>
-          <div className={styles.listWrap}>
-          <ProgressiveBlur
-            direction="top"
-            height={30}
-            blur={10}
-            tint={0.16}
-            className={styles.listBlur}
-            style={{ top: 0 }}
-          />
-          <ProgressiveBlur
-            direction="bottom"
-            height={34}
-            blur={10}
-            tint={0.16}
-            className={styles.listBlur}
-            style={{ bottom: 0 }}
-          />
           <div className={styles.list}>
             {tasks.map((task) => (
               <div key={task.id} className={styles.task} data-status={task.status}>
@@ -174,7 +156,6 @@ export const TaskPanel = () => {
                 ) : null}
               </div>
             ))}
-          </div>
           </div>
           <div className={styles.foot}>
             <Button variant="outlined" size="s" onClick={() => clearFinishedTasks()}>
