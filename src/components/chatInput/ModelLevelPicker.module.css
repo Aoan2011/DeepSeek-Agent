@@ -88,7 +88,7 @@
 }
 
 body[data-ds-dark-theme] .panel {
-  background: rgba(28, 30, 36, 0.86);
+  background: rgba(24, 26, 32, 0.94);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.55),
