@@ -8,8 +8,140 @@ import {
   updateGoal,
   useGoals,
 } from '../../goals.js'
+import { cancelTask, useTasks, type AgentTask } from '../tasks.js'
 import { defineTool, fail, num, objectSchema, ok, str } from '../toolKit.js'
 import type { RegisteredTool } from '../types.js'
+
+const TASK_STATUS: Record<AgentTask['status'], string> = {
+  running: '运行中',
+  detached: '后台运行',
+  done: '已完成',
+  error: '失败',
+  cancelled: '已取消',
+}
+
+const elapsed = (task: AgentTask) => {
+  const end = task.endedAt ?? Date.now()
+  return Math.max(0, Math.round((end - task.startedAt) / 1000))
+}
+
+const taskLine = (task: AgentTask) => {
+  const parts = [
+    `[${TASK_STATUS[task.status]}] ${task.label || task.toolName}`,
+    `id: ${task.id}`,
+    `用时 ${elapsed(task)}s`,
+  ]
+  if (task.purpose) {
+    parts.push(`目的：${task.purpose}`)
+  }
+  if (task.progress && (task.status === 'running' || task.status === 'detached')) {
+    parts.push(`进度：${task.progress}`)
+  }
+  if (task.output && task.status !== 'running') {
+    parts.push(`结果：${task.output.replace(/\s+/g, ' ').slice(0, 240)}`)
+  }
+  return parts.join('｜')
+}
+
+/** 后台任务：模型可以查看自己转后台的工具/子 Agent 进度，也可以取回完整输出 */
+const taskStatusTool = defineTool(
+  {
+    name: 'task_status',
+    label: '后台任务状态',
+    description: [
+      '查看后台任务（转后台的工具调用与子 Agent）的状态。',
+      'action=list 列出任务：状态、工具、目的、进度、耗时与结果预览；action=get 用 id 读取某个任务的完整输出。',
+      '当工具提示「已转入后台」或用户问「刚才那个任务怎么样了」时使用。',
+    ].join(''),
+    inputSchema: objectSchema({
+      action: { type: 'string', enum: ['list', 'get'], description: '默认 list' },
+      id: { type: 'string', description: 'action=get 时的任务 id' },
+      scope: {
+        type: 'string',
+        enum: ['session', 'all'],
+        description: 'session 只看当前会话（默认），all 看全部',
+      },
+    }),
+    risk: 'safe',
+    icon: 'layers',
+  },
+  async (input, context) => {
+    const action = str(input, 'action') || 'list'
+    const all = str(input, 'scope') === 'all'
+    const tasks = useTasks
+      .getState()
+      .tasks.filter((task) => all || task.sessionId === context.sessionId)
+
+    if (action === 'get') {
+      const id = str(input, 'id').trim()
+      if (!id) {
+        return fail('get 需要 id，可以先 action=list 查')
+      }
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return fail(`没有这个任务：${id}`)
+      }
+      return ok(
+        [
+          `任务：${task.label || task.toolName}`,
+          `状态：${TASK_STATUS[task.status]}`,
+          `目的：${task.purpose || '—'}`,
+          `开始：${new Date(task.startedAt).toLocaleString()}`,
+          `用时：${elapsed(task)}s`,
+          task.progress ? `进度：${task.progress}` : '',
+          '',
+          '输出：',
+          task.output || '（还没有输出）',
+        ]
+          .filter((line) => line !== '')
+          .join('\n'),
+        { meta: { id: task.id, status: task.status } }
+      )
+    }
+
+    if (tasks.length === 0) {
+      return ok('当前没有后台任务。')
+    }
+    return ok(
+      [
+        `共 ${tasks.length} 个后台任务：`,
+        ...tasks.map((task) => `- ${taskLine(task)}`),
+      ].join('\n'),
+      { meta: { count: tasks.length } }
+    )
+  },
+  'browser'
+)
+
+/** 取消后台任务：只中止任务自身的 AbortSignal，不影响当前对话 */
+const taskCancelTool = defineTool(
+  {
+    name: 'task_cancel',
+    label: '取消后台任务',
+    description: '按 id 取消一个仍在运行或已转后台的任务。已完成/失败/取消的任务无需取消。',
+    inputSchema: objectSchema({ id: { type: 'string', description: '任务 id' } }, ['id']),
+    risk: 'write',
+    requiresApproval: false,
+    icon: 'bolt',
+  },
+  async (input) => {
+    const id = str(input, 'id').trim()
+    if (!id) {
+      return fail('需要任务 id，可以先用 task_status 查')
+    }
+    const task = useTasks.getState().tasks.find((item) => item.id === id)
+    if (!task) {
+      return fail(`没有这个任务：${id}`)
+    }
+    if (task.status !== 'running' && task.status !== 'detached') {
+      return ok(`任务「${task.label}」已经是${TASK_STATUS[task.status]}，无需取消。`)
+    }
+    cancelTask(id)
+    return ok(`已取消任务「${task.label || task.toolName}」（id: ${id}）。`)
+  },
+  'browser'
+)
+
 
 /**
  * 目标管理：目标会一直出现在系统提示里，直到被标记完成。
@@ -167,4 +299,6 @@ export const agentTools: RegisteredTool[] = [
     }
   ),
   manageGoalsTool,
+  taskStatusTool,
+  taskCancelTool,
 ]

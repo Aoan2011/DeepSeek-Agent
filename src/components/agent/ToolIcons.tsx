@@ -199,6 +199,10 @@ export const toolIcon = (name: string, source?: ToolSource) => {
       return <IconSpark />
     case 'preview_file':
       return <IconLayers />
+    case 'task_status':
+      return <IconLayers />
+    case 'task_cancel':
+      return <IconBolt />
     case 'view_image':
       return <IconEye />
     case 'workspace_write_file':
