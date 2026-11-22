@@ -74,6 +74,10 @@ def test_text_dedupe_and_strip(sandbox: Sandbox, settings: Settings) -> None:
         run("desk_text", {"action": "strip_invisible", "text": "a\u200bb\x00c"}, sandbox, settings)
     )
     assert "abc" in stripped
+    ansi = text_of(
+        run("desk_text", {"action": "strip_ansi", "text": "\u001b[31mred\u001b[0m"}, sandbox, settings)
+    )
+    assert ansi.endswith("red")
 
 
 def test_cron_next(sandbox: Sandbox, settings: Settings) -> None:

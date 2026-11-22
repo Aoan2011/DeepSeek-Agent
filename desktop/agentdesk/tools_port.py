@@ -444,13 +444,13 @@ def definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "desk_text",
-            "description": "文本工具：word_frequency 词频，dedupe 行去重，strip_invisible 清不可见字符，template 渲染 {{变量}}。",
+            "description": "文本工具：word_frequency 词频，dedupe 行去重，strip_invisible 清不可见字符，strip_ansi 去终端色控，template 渲染 {{变量}}。",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["word_frequency", "dedupe", "strip_invisible", "template"],
+                        "enum": ["word_frequency", "dedupe", "strip_invisible", "strip_ansi", "template"],
                     },
                     "text": {"type": "string"},
                     "path": {"type": "string", "description": "从沙箱文件读取，与 text 二选一"},
@@ -1587,6 +1587,10 @@ def _text_tools(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
             cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
             cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
         return _text(f"清除了 {len(source) - len(cleaned)} 个字符：\n" + cleaned[:MAX_DIFF])
+
+    if action == "strip_ansi":
+        cleaned = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", source)
+        return _text(f"清除了 {len(source) - len(cleaned)} 个控制序列：\n" + cleaned[:MAX_DIFF])
 
     if action == "template":
         template = _arg(args, "template") or source
