@@ -16,18 +16,24 @@ import fnmatch
 import hashlib
 import html
 import io
+import ipaddress
 import json
 import math
 import os
+import platform
 import re
 import secrets
+import shutil
 import socket
 import sqlite3
 import ssl
 import string
+import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -344,28 +350,39 @@ def definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "desk_image",
-            "description": "图片处理：action=info 看尺寸，resize 缩放，convert 转格式，thumbnail 生成缩略图。需要 Pillow。",
+            "description": "图片处理：info 看尺寸，resize 缩放，convert 转格式，thumbnail 缩略图，crop 裁剪，rotate 旋转。需要 Pillow。",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["info", "resize", "convert", "thumbnail"]},
+                    "action": {
+                        "type": "string",
+                        "enum": ["info", "resize", "convert", "thumbnail", "crop", "rotate"],
+                    },
                     "path": {"type": "string"},
                     "out": {"type": "string", "description": "输出路径，默认同名加后缀"},
                     "width": {"type": "integer"},
                     "height": {"type": "integer"},
                     "format": {"type": "string", "description": "png/jpeg/webp"},
                     "quality": {"type": "integer"},
+                    "left": {"type": "integer", "description": "crop 左边界"},
+                    "top": {"type": "integer", "description": "crop 上边界"},
+                    "right": {"type": "integer", "description": "crop 右边界"},
+                    "bottom": {"type": "integer", "description": "crop 下边界"},
+                    "angle": {"type": "number", "description": "rotate 角度，逆时针"},
                 },
                 "required": ["action", "path"],
             },
         },
         {
             "name": "desk_qr",
-            "description": "生成二维码：action=generate 普通文本，wifi 配网码，vcard 名片。输出 png 或 svg。需要 qrcode。",
+            "description": "生成二维码：generate 普通文本，wifi 配网码，vcard 名片，email 邮件，sms 短信，geo 坐标。输出 png 或 svg。需要 qrcode。",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["generate", "wifi", "vcard"]},
+                    "action": {
+                        "type": "string",
+                        "enum": ["generate", "wifi", "vcard", "email", "sms", "geo"],
+                    },
                     "text": {"type": "string"},
                     "path": {"type": "string", "description": "输出文件，默认 qrcode.png"},
                     "ssid": {"type": "string"},
@@ -373,6 +390,12 @@ def definitions() -> list[dict[str, Any]]:
                     "name": {"type": "string"},
                     "phone": {"type": "string"},
                     "org": {"type": "string"},
+                    "email": {"type": "string"},
+                    "subject": {"type": "string"},
+                    "body": {"type": "string"},
+                    "message": {"type": "string"},
+                    "lat": {"type": "number"},
+                    "lng": {"type": "number"},
                     "size": {"type": "integer"},
                 },
                 "required": ["action"],
@@ -399,6 +422,113 @@ def definitions() -> list[dict[str, Any]]:
                     "limit": {"type": "integer"},
                 },
                 "required": ["action", "path"],
+            },
+        },
+        {
+            "name": "desk_json",
+            "description": "JSON 工具：action=format 美化/压缩，diff 对比两份 JSON，validate 只校验语法。",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["format", "diff", "validate"]},
+                    "text": {"type": "string", "description": "JSON 文本"},
+                    "path": {"type": "string", "description": "JSON 文件（沙箱内），与 text 二选一"},
+                    "other": {"type": "string", "description": "diff 的第二段 JSON"},
+                    "other_path": {"type": "string", "description": "diff 的第二个文件"},
+                    "indent": {"type": "integer", "description": "缩进空格 0-8，默认 2"},
+                    "compact": {"type": "boolean", "description": "压缩成一行"},
+                },
+                "required": ["action"],
+            },
+            "annotations": read_only,
+        },
+        {
+            "name": "desk_text",
+            "description": "文本工具：word_frequency 词频，dedupe 行去重，strip_invisible 清不可见字符，template 渲染 {{变量}}。",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["word_frequency", "dedupe", "strip_invisible", "template"],
+                    },
+                    "text": {"type": "string"},
+                    "path": {"type": "string", "description": "从沙箱文件读取，与 text 二选一"},
+                    "top": {"type": "integer", "description": "词频前 N 个，默认 30"},
+                    "min_len": {"type": "integer", "description": "中文片段长度 2-4，默认 2"},
+                    "stopwords": {"type": "string", "description": "逗号分隔的停用词"},
+                    "case_insensitive": {"type": "boolean"},
+                    "strip_whitespace": {"type": "boolean"},
+                    "keep_order": {"type": "boolean"},
+                    "template": {"type": "string", "description": "template 动作的模板文本"},
+                    "variables": {"type": "object", "description": "template 动作的变量"},
+                },
+                "required": ["action"],
+            },
+            "annotations": read_only,
+        },
+        {
+            "name": "desk_cron",
+            "description": "计算 5 段 cron（分 时 日 月 周）接下来几次执行时间，使用本机时区。",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "expression": {"type": "string", "description": "例如 0 9 * * 1-5"},
+                    "count": {"type": "integer", "description": "返回几条，默认 3"},
+                    "start": {"type": "string", "description": "从这个 ISO 时间开始算，默认现在"},
+                },
+                "required": ["expression"],
+            },
+            "annotations": read_only,
+        },
+        {
+            "name": "desk_system",
+            "description": "系统信息：action=env 运行环境，metrics CPU/内存/磁盘，disk 指定路径的磁盘占用。",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["env", "metrics", "disk"]},
+                    "path": {"type": "string", "description": "disk 动作的路径，默认沙箱根目录"},
+                },
+                "required": ["action"],
+            },
+            "annotations": read_only,
+        },
+        {
+            "name": "desk_http",
+            "description": "发 HTTP 请求：支持 GET/POST/PUT/PATCH/DELETE/HEAD、请求头与文本请求体。只允许公网地址，返回状态码、响应头与正文片段。",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string"},
+                    "method": {
+                        "type": "string",
+                        "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"],
+                    },
+                    "headers": {"type": "object", "description": "请求头键值对"},
+                    "body": {"type": "string", "description": "文本请求体"},
+                    "timeout": {"type": "number", "description": "超时秒数，默认 15"},
+                    "max_chars": {"type": "integer", "description": "正文最多返回多少字符，默认 20000"},
+                },
+                "required": ["url"],
+            },
+        },
+        {
+            "name": "desk_replace",
+            "description": "批量查找替换：默认只预览改动（dry_run=true），确认后传 dry_run=false 才写回文件。支持正则与大小写忽略。",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "起点目录或单个文件"},
+                    "pattern": {"type": "string"},
+                    "replacement": {"type": "string"},
+                    "glob": {"type": "string", "description": "文件名通配，默认 *"},
+                    "use_regex": {"type": "boolean"},
+                    "case_insensitive": {"type": "boolean"},
+                    "dry_run": {"type": "boolean", "description": "默认 true，只预览"},
+                    "max_files": {"type": "integer", "description": "最多处理多少个文件，默认 20"},
+                },
+                "required": ["path", "pattern", "replacement"],
             },
         },
     ]
@@ -1181,6 +1311,20 @@ def _image(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
                 size = _int(args, "width", 320, 16, 4096)
                 result = image.copy()
                 result.thumbnail((size, size))
+            elif action == "crop":
+                left = _int(args, "left", 0, 0, image.width)
+                top = _int(args, "top", 0, 0, image.height)
+                right = _int(args, "right", image.width, 0, image.width)
+                bottom = _int(args, "bottom", image.height, 0, image.height)
+                if right <= left or bottom <= top:
+                    raise ExtraToolError("裁剪区域为空：需要 right>left 且 bottom>top")
+                result = image.crop((left, top, right, bottom))
+            elif action == "rotate":
+                try:
+                    angle = float(args.get("angle", 90))
+                except (TypeError, ValueError):
+                    raise ExtraToolError("angle 需要是数字") from None
+                result = image.rotate(angle, expand=True)
             else:
                 result = image.copy()
                 fmt = _arg(args, "format", "webp").lower()
@@ -1214,6 +1358,20 @@ def _qr(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
             cards.append(f"TEL:{_arg(args, 'phone')}")
         cards.append("END:VCARD")
         payload = "\n".join(cards)
+    elif action == "email":
+        query = urllib.parse.urlencode(
+            {key: value for key, value in (("subject", _arg(args, "subject")), ("body", _arg(args, "body"))) if value}
+        )
+        payload = f"mailto:{_need(args, 'email')}" + (f"?{query}" if query else "")
+    elif action == "sms":
+        payload = f"SMSTO:{_need(args, 'phone')}:{_arg(args, 'message')}"
+    elif action == "geo":
+        try:
+            latitude = float(args["lat"])
+            longitude = float(args["lng"])
+        except (KeyError, TypeError, ValueError):
+            raise ExtraToolError("geo 需要数字 lat 与 lng") from None
+        payload = f"geo:{latitude},{longitude}"
     else:
         payload = _need(args, "text")
     out_raw = _arg(args, "path") or "qrcode.png"
@@ -1304,6 +1462,406 @@ def _office(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
     raise ExtraToolError(f"不支持的 action：{action}")
 
 
+# --------------------------------------------------------------------------- JSON / 文本 / 时间 / 系统 / 网络
+
+
+def _json_input(args: dict[str, Any], sandbox: Sandbox, text_key: str = "text", path_key: str = "path") -> Any:
+    raw = _arg(args, text_key)
+    if not raw:
+        path = _arg(args, path_key).strip()
+        if not path:
+            raise ExtraToolError(f"需要 {text_key} 或 {path_key}")
+        raw = _read_text(sandbox.resolve(path, must_exist=True))
+    if not raw.strip():
+        raise ExtraToolError("JSON 内容为空")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise ExtraToolError(f"JSON 解析失败：{error}") from None
+
+
+def _json_diff(left: Any, right: Any, path: str, out: list[str], limit: int = 200) -> None:
+    if len(out) >= limit or left == right:
+        return
+    if type(left) is not type(right):
+        out.append(f"{path or '$'}：{type(left).__name__} → {type(right).__name__}")
+        return
+    if isinstance(left, list) and isinstance(right, list):
+        for index in range(max(len(left), len(right))):
+            if index >= len(left):
+                out.append(f"{path}[{index}]：新增 {json.dumps(right[index], ensure_ascii=False)}")
+            elif index >= len(right):
+                out.append(f"{path}[{index}]：删除 {json.dumps(left[index], ensure_ascii=False)}")
+            else:
+                _json_diff(left[index], right[index], f"{path}[{index}]", out, limit)
+            if len(out) >= limit:
+                return
+        return
+    if isinstance(left, dict) and isinstance(right, dict):
+        for key in list(dict.fromkeys([*left.keys(), *right.keys()])):
+            if key not in left:
+                out.append(f"{path}.{key}：新增 {json.dumps(right[key], ensure_ascii=False)}")
+            elif key not in right:
+                out.append(f"{path}.{key}：删除")
+            else:
+                _json_diff(left[key], right[key], f"{path}.{key}", out, limit)
+            if len(out) >= limit:
+                return
+        return
+    out.append(f"{path or '$'}：{json.dumps(left, ensure_ascii=False)} → {json.dumps(right, ensure_ascii=False)}")
+
+
+def _json(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
+    action = _arg(args, "action", "format")
+    if action == "format":
+        value = _json_input(args, sandbox)
+        compact = bool(args.get("compact"))
+        indent = _int(args, "indent", 2, 0, 8)
+        text = json.dumps(value, ensure_ascii=False, separators=(",", ":") if compact else None, indent=None if compact else indent)
+        return _text(text[:MAX_DIFF])
+    if action == "validate":
+        value = _json_input(args, sandbox)
+        kind = "数组" if isinstance(value, list) else "对象" if isinstance(value, dict) else type(value).__name__
+        size = len(value) if isinstance(value, (list, dict)) else len(str(value))
+        return _text(f"JSON 合法：{kind}，{size} 项")
+    if action == "diff":
+        left = _json_input(args, sandbox, "text", "path")
+        right = _json_input(args, sandbox, "other", "other_path")
+        out: list[str] = []
+        _json_diff(left, right, "", out)
+        return _text("\n".join(out) if out else "两段 JSON 一致")
+    raise ExtraToolError(f"不支持的 action：{action}")
+
+
+def _text_tools(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
+    action = _arg(args, "action", "word_frequency")
+    source = _load_text(args, sandbox)
+    if not source and action != "template":
+        raise ExtraToolError("请给 text 或 path")
+
+    if action == "word_frequency":
+        top = _int(args, "top", 30, 1, 200)
+        size = _int(args, "min_len", 2, 2, 4)
+        stop = {item.strip().lower() for item in _arg(args, "stopwords").split(",") if item.strip()}
+        counts: Counter[str] = Counter()
+        for word in re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ]{2,}", source.lower()):
+            if word not in stop:
+                counts[word] += 1
+        for run in re.findall(r"[\u3400-\u9fff]+", source):
+            for index in range(len(run) - size + 1):
+                token = run[index : index + size]
+                if token not in stop:
+                    counts[token] += 1
+        lines = [f"总词数：{sum(counts.values())}，唯一词：{len(counts)}", ""]
+        most = counts.most_common(top)
+        peak = most[0][1] if most else 1
+        for word, count in most:
+            bar = "█" * max(1, round(count / peak * 20))
+            lines.append(f"{word:<18} {count:>5}  {bar}")
+        return _text("\n".join(lines))
+
+    if action == "dedupe":
+        lines_in = source.replace("\r\n", "\n").split("\n")
+        trim = bool(args.get("strip_whitespace", True))
+        insensitive = bool(args.get("case_insensitive"))
+        keep_order = bool(args.get("keep_order", True))
+        seen: set[str] = set()
+        result: list[str] = []
+        for raw in lines_in:
+            line = raw.strip() if trim else raw
+            if not line:
+                continue
+            key = line.lower() if insensitive else line
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(line)
+        if not keep_order:
+            result.sort()
+        return _text(f"去重后 {len(result)} 行：\n" + "\n".join(result)[:MAX_DIFF])
+
+    if action == "strip_invisible":
+        cleaned = re.sub(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]", "", source)
+        cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", cleaned)
+        if args.get("strip_whitespace"):
+            cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+            cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return _text(f"清除了 {len(source) - len(cleaned)} 个字符：\n" + cleaned[:MAX_DIFF])
+
+    if action == "template":
+        template = _arg(args, "template") or source
+        if not template:
+            raise ExtraToolError("template 不能为空")
+        variables = args.get("variables")
+        if not isinstance(variables, dict):
+            raise ExtraToolError("variables 需要是对象")
+
+        def lookup(key: str) -> Any:
+            value: Any = variables
+            for part in key.split("."):
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                else:
+                    return None
+            return value
+
+        def replace(match: re.Match[str]) -> str:
+            value = lookup(match.group(1).strip())
+            return match.group(0) if value is None else str(value)
+
+        return _text(re.sub(r"\{\{\s*([\w.]+)\s*\}\}", replace, template)[:MAX_DIFF])
+
+    raise ExtraToolError(f"不支持的 action：{action}")
+
+
+_CRON_FIELD = re.compile(r"^(\*|\d+|\d+-\d+|\*/\d+|\d+(?:,\d+)+|\d+-\d+/\d+)$")
+
+
+def _cron_values(field: str, low: int, high: int) -> set[int]:
+    if not _CRON_FIELD.match(field):
+        raise ExtraToolError(f"cron 字段不合法：{field}")
+    values: set[int] = set()
+    for part in field.split(","):
+        step = 1
+        body = part
+        if "/" in part:
+            body, raw_step = part.split("/", 1)
+            step = int(raw_step)
+            if step <= 0:
+                raise ExtraToolError("cron 步长必须大于 0")
+        if body == "*":
+            start, end = low, high
+        elif "-" in body:
+            start, end = (int(item) for item in body.split("-", 1))
+        else:
+            start = end = int(body)
+        if start < low or end > high or start > end:
+            raise ExtraToolError(f"cron 字段超出范围 {low}-{high}：{part}")
+        values.update(range(start, end + 1, step))
+    return values
+
+
+def _cron(args: dict[str, Any]) -> dict[str, Any]:
+    expression = _need(args, "expression")
+    fields = expression.split()
+    if len(fields) != 5:
+        raise ExtraToolError("需要 5 段 cron：分 时 日 月 周")
+    minutes = _cron_values(fields[0], 0, 59)
+    hours = _cron_values(fields[1], 0, 23)
+    days = _cron_values(fields[2], 1, 31)
+    months = _cron_values(fields[3], 1, 12)
+    weekdays = _cron_values(fields[4].replace("7", "0") if fields[4] == "7" else fields[4], 0, 6)
+    count = _int(args, "count", 3, 1, 10)
+    start_raw = _arg(args, "start")
+    try:
+        cursor = datetime.fromisoformat(start_raw) if start_raw else datetime.now()
+    except ValueError:
+        raise ExtraToolError(f"start 不是合法 ISO 时间：{start_raw}") from None
+    cursor = cursor.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    results: list[str] = []
+    for _ in range(366 * 24 * 60):
+        if len(results) >= count:
+            break
+        if (
+            cursor.minute in minutes
+            and cursor.hour in hours
+            and cursor.day in days
+            and cursor.month in months
+            and (cursor.weekday() + 1) % 7 in weekdays
+        ):
+            results.append(cursor.strftime("%Y-%m-%d %H:%M %A"))
+        cursor += timedelta(minutes=1)
+    if not results:
+        return _text("未来一年内没有匹配的执行时间")
+    return _text("\n".join(f"{index}. {item}" for index, item in enumerate(results, 1)))
+
+
+def _system(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
+    action = _arg(args, "action", "env")
+    root = sandbox.resolve(".")
+    if action == "env":
+        lines = [
+            f"系统：{platform.system()} {platform.release()}（{platform.machine()}）",
+            f"Python：{platform.python_version()}（{sys.executable}）",
+            f"工作目录：{os.getcwd()}",
+            f"沙箱根目录：{root}",
+            f"CPU 逻辑核心：{os.cpu_count() or '未知'}",
+        ]
+        for key in ("LANG", "SHELL", "TERM", "VIRTUAL_ENV", "AGENTDESK_WORKSPACES"):
+            if os.environ.get(key):
+                lines.append(f"{key}={os.environ[key]}")
+        return _text("\n".join(lines))
+    if action == "metrics":
+        lines = [f"CPU 逻辑核心：{os.cpu_count() or '未知'}"]
+        load = getattr(os, "getloadavg", None)
+        if load:
+            try:
+                one, five, fifteen = load()
+                lines.append(f"负载：{one:.2f} / {five:.2f} / {fifteen:.2f}")
+            except OSError:
+                pass
+        try:
+            usage = shutil.disk_usage(str(root))
+            lines.append(
+                f"磁盘：总计 {_human(usage.total)}，已用 {_human(usage.used)}，可用 {_human(usage.free)}"
+            )
+        except OSError:
+            pass
+        try:
+            import psutil  # type: ignore
+
+            memory = psutil.virtual_memory()
+            lines.append(f"内存：{_human(memory.used)} / {_human(memory.total)}（{memory.percent}%）")
+        except Exception:
+            lines.append("内存：安装 psutil 后可查看（pip install psutil）")
+        lines.append(f"当前进程：PID {os.getpid()}")
+        return _text("\n".join(lines))
+    if action == "disk":
+        target = sandbox.resolve(_arg(args, "path") or ".", must_exist=True)
+        usage = shutil.disk_usage(str(target))
+        return _text(
+            f"{target}\n总计：{_human(usage.total)}\n已用：{_human(usage.used)}\n可用：{_human(usage.free)}"
+        )
+    raise ExtraToolError(f"不支持的 action：{action}")
+
+
+_PRIVATE_HOST_SUFFIX = (".localhost", ".local", ".internal", ".home.arpa")
+
+
+def _ensure_public_url(url: str) -> None:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ExtraToolError("只允许 http/https 地址")
+    host = (parsed.hostname or "").lower()
+    if not host or host == "localhost" or host.endswith(_PRIVATE_HOST_SUFFIX):
+        raise ExtraToolError("出于安全考虑，不访问本机或内网地址")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as error:
+        raise ExtraToolError(f"无法解析域名：{host}（{error}）") from None
+    for info in infos:
+        address = str(info[4][0]).split("%", 1)[0]
+        try:
+            ip = ipaddress.ip_address(address)
+        except ValueError:
+            continue
+        if ip.version == 6 and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            raise ExtraToolError("出于安全考虑，不访问本机或内网地址")
+
+
+class _PublicRedirect(urllib.request.HTTPRedirectHandler):
+    """跟随跳转前再校验一次，防止公网 URL 302 到内网。"""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        _ensure_public_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _http(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
+    url = _need(args, "url")
+    _ensure_public_url(url)
+    method = _arg(args, "method", "GET").upper()
+    if method not in ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"):
+        raise ExtraToolError(f"不支持的 method：{method}")
+    headers = args.get("headers")
+    if headers is not None and not isinstance(headers, dict):
+        raise ExtraToolError("headers 需要是对象")
+    request_headers = {str(key): str(value) for key, value in (headers or {}).items()}
+    request_headers.setdefault("User-Agent", "DeepSeek-Agent-Desktop/0.8")
+    body = _arg(args, "body")
+    data = body.encode("utf-8") if body and method not in ("GET", "HEAD") else None
+    timeout = float(args.get("timeout", 15))
+    timeout = max(1.0, min(120.0, timeout))
+    max_chars = _int(args, "max_chars", 20000, 200, 200000)
+    request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
+    opener = urllib.request.build_opener(_PublicRedirect)
+    started = time.monotonic()
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            elapsed = (time.monotonic() - started) * 1000
+            raw = b"" if method == "HEAD" else response.read(max_chars * 4)
+            charset = response.headers.get_content_charset() or "utf-8"
+            text = raw.decode(charset, "replace")[:max_chars]
+            keep = ("content-type", "content-length", "server", "date", "location")
+            header_lines = [
+                f"{key}: {value}"
+                for key, value in response.headers.items()
+                if key.lower() in keep
+            ]
+            return _text(
+                f"{method} {url}\n状态：{response.status} {response.reason}\n耗时：{elapsed:.0f} ms\n"
+                + "\n".join(header_lines)
+                + "\n\n"
+                + text
+            )
+    except urllib.error.HTTPError as error:
+        detail = error.read(4000).decode("utf-8", "replace")
+        return _text(f"{method} {url}\nHTTP {error.code} {error.reason}\n\n{detail}", error=True)
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        raise ExtraToolError(f"请求失败：{error}") from None
+
+
+def _replace(args: dict[str, Any], sandbox: Sandbox) -> dict[str, Any]:
+    base = sandbox.resolve(_need(args, "path"), must_exist=True)
+    pattern = _need(args, "pattern")
+    replacement = _arg(args, "replacement")
+    glob = _arg(args, "glob") or "*"
+    flags = re.IGNORECASE if args.get("case_insensitive") else 0
+    try:
+        regex = re.compile(pattern if args.get("use_regex") else re.escape(pattern), flags)
+    except re.error as error:
+        raise ExtraToolError(f"正则无效：{error}") from None
+    dry_run = args.get("dry_run", True) is not False
+    max_files = _int(args, "max_files", 20, 1, 200)
+    files = [base] if base.is_file() else [
+        path for path in _walk(base, max_files * 20) if fnmatch.fnmatch(path.name, glob)
+    ]
+    changed: list[str] = []
+    previews: list[str] = []
+    for path in files:
+        if len(changed) >= max_files:
+            break
+        try:
+            if path.stat().st_size > 1_000_000:
+                continue
+            source = _read_text(path, 1_000_000)
+        except OSError:
+            continue
+        target_text, count = regex.subn(replacement, source)
+        if count == 0 or target_text == source:
+            continue
+        changed.append(f"{sandbox.relative(path)}（{count} 处）")
+        diff = list(
+            difflib.unified_diff(
+                source.splitlines(),
+                target_text.splitlines(),
+                fromfile=sandbox.relative(path),
+                tofile=sandbox.relative(path),
+                n=1,
+            )
+        )
+        previews.append("\n".join(diff[:40]))
+        if not dry_run:
+            try:
+                path.write_text(target_text, encoding="utf-8")
+            except OSError as error:
+                raise ExtraToolError(f"写入失败：{sandbox.relative(path)}（{error}）") from None
+    if not changed:
+        return _text("没有匹配到需要替换的内容")
+    header = ("已预览（未写入）：" if dry_run else "已写入：") + "\n" + "\n".join(f"- {item}" for item in changed)
+    return _text(header + "\n\n" + "\n\n".join(previews)[:MAX_DIFF])
+
+
 # --------------------------------------------------------------------------- 分发
 
 
@@ -1349,6 +1907,18 @@ async def dispatch(
         return _qr(args, sandbox)
     if name == "desk_office":
         return _office(args, sandbox)
+    if name == "desk_json":
+        return _json(args, sandbox)
+    if name == "desk_text":
+        return _text_tools(args, sandbox)
+    if name == "desk_cron":
+        return _cron(args)
+    if name == "desk_system":
+        return _system(args, sandbox)
+    if name == "desk_http":
+        return _http(args, sandbox)
+    if name == "desk_replace":
+        return _replace(args, sandbox)
     return None
 
 
