@@ -10,12 +10,12 @@ import type { MessageUsage } from '../api/types.js'
  */
 
 const WINDOW: Record<string, number> = {
-  'deepseek-flash': 128_000,
-  'deepseek-v4-pro': 128_000,
+  'deepseek-flash': 1_000_000,
+  'deepseek-v4-pro': 1_000_000,
 }
 
-/** 接口没有给出上下文窗口时按 128k 兜底 */
-const FALLBACK_WINDOW = 128_000
+/** 接口没有给出上下文窗口时按 1M 兜底 */
+const FALLBACK_WINDOW = 1_000_000
 
 export const contextWindowFor = (model: string): number => WINDOW[model] ?? FALLBACK_WINDOW
 
