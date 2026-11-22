@@ -1,5 +1,14 @@
 import clsx from 'clsx'
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MutableRefObject,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import {
@@ -62,7 +71,167 @@ export const ModelLevelPicker = () => {
   const [loading, setLoading] = useState(false)
   // 满档提示只出现一会儿，然后淡回正常标题（和视频一致）
   const [hint, setHint] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const fetched = useRef(false)
+
+  /*
+   * 滑杆的动画引擎：--p 直接写到 DOM 上，不走 React 渲染。
+   * 拖动时指数阻尼跟随指针（手指/鼠标停下后滑块再滑一小段），
+   * 松手吸附到最近档位，再用欠阻尼弹簧过冲一点后回弹。
+   */
+  const sliderRef = useRef<HTMLDivElement | null>(null) as MutableRefObject<HTMLDivElement | null>
+  const posRef = useRef(effort / EFFORT_LEVELS)
+  const targetRef = useRef(posRef.current)
+  const velocityRef = useRef(0)
+  const draggingRef = useRef(false)
+  const rafRef = useRef(0)
+  const lastFrameRef = useRef(0)
+  const stepRef = useRef<((now: number) => void) | null>(null) as MutableRefObject<((now: number) => void) | null>
+
+  const paint = useCallback((value: number) => {
+    const next = Math.min(1, Math.max(0, value))
+    posRef.current = next
+    sliderRef.current?.style.setProperty('--p', next.toFixed(4))
+  }, [sliderRef])
+
+  useEffect(() => {
+    const step = (now: number) => {
+      const dt = Math.min(0.032, Math.max(0.001, (now - lastFrameRef.current) / 1000))
+      lastFrameRef.current = now
+      if (draggingRef.current) {
+        // 阻尼跟随：时间常数 58ms，快速拖动也不会一步跳到位
+        const ease = 1 - Math.exp(-dt / 0.058)
+        paint(posRef.current + (targetRef.current - posRef.current) * ease)
+        const level = Math.round(posRef.current * EFFORT_LEVELS)
+        if (level !== useSettings.getState().reasoningEffort) {
+          setReasoningEffort(level)
+        }
+      } else {
+        // 弹簧：刚度 300、阻尼 16，略欠阻尼，松手会轻轻过冲再回来
+        const accel = -300 * (posRef.current - targetRef.current) - 16 * velocityRef.current
+        velocityRef.current += accel * dt
+        paint(posRef.current + velocityRef.current * dt)
+        if (
+          Math.abs(posRef.current - targetRef.current) < 0.0015 &&
+          Math.abs(velocityRef.current) < 0.02
+        ) {
+          paint(targetRef.current)
+          rafRef.current = 0
+          return
+        }
+      }
+      rafRef.current = requestAnimationFrame(step)
+    }
+    stepRef.current = step
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = 0
+    }
+  }, [paint, stepRef])
+
+  const startSpring = useCallback(() => {
+    if (rafRef.current) {
+      return
+    }
+    const step = stepRef.current
+    if (!step) {
+      return
+    }
+    lastFrameRef.current = performance.now()
+    rafRef.current = requestAnimationFrame(step)
+  }, [stepRef])
+
+  // 外部改档位（设置页、键盘）时弹到新位置；打开面板时直接落到当前档
+  useEffect(() => {
+    if (!open || draggingRef.current) {
+      return
+    }
+    const next = effort / EFFORT_LEVELS
+    if (Math.abs(next - targetRef.current) < 1e-6 && rafRef.current) {
+      return
+    }
+    targetRef.current = next
+    velocityRef.current = 0
+    if (Math.abs(next - posRef.current) < 1e-6) {
+      paint(next)
+      return
+    }
+    startSpring()
+  }, [effort, open, paint, startSpring])
+
+  const ratioAt = (clientX: number) => {
+    const el = sliderRef.current
+    if (!el) {
+      return 0
+    }
+    const rect = el.getBoundingClientRect()
+    const travel = Math.max(1, rect.width - THUMB_RADIUS * 2)
+    return Math.min(1, Math.max(0, (clientX - rect.left - THUMB_RADIUS) / travel))
+  }
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return
+    }
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    draggingRef.current = true
+    setDragging(true)
+    velocityRef.current = 0
+    targetRef.current = ratioAt(event.clientX)
+    startSpring()
+  }
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (draggingRef.current) {
+      targetRef.current = ratioAt(event.clientX)
+    }
+  }
+
+  const stopDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) {
+      return
+    }
+    draggingRef.current = false
+    setDragging(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    // 以松手位置为准（快速拖动时最后一个 move 可能还没处理），再吸附到最近档位
+    targetRef.current = ratioAt(event.clientX)
+    const snapped = Math.round(targetRef.current * EFFORT_LEVELS)
+    targetRef.current = snapped / EFFORT_LEVELS
+    setReasoningEffort(snapped)
+    startSpring()
+  }
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const current = useSettings.getState().reasoningEffort
+    let next = current
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      next = Math.min(EFFORT_LEVELS, current + 1)
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      next = Math.max(0, current - 1)
+    } else if (event.key === 'Home') {
+      next = 0
+    } else if (event.key === 'End') {
+      next = EFFORT_LEVELS
+    } else {
+      return
+    }
+    event.preventDefault()
+    setReasoningEffort(next)
+  }
+
+  // 挂载时用当前档位初始化 --p；回调保持稳定，拖动中的重渲染不会把它重置
+  const setSlider = useCallback((node: HTMLDivElement | null) => {
+    sliderRef.current = node
+    if (node) {
+      const initial = useSettings.getState().reasoningEffort / EFFORT_LEVELS
+      posRef.current = initial
+      node.style.setProperty('--p', initial.toFixed(4))
+    }
+  }, [sliderRef])
   // 面板只要一层磨砂：跟着输入框透出背景，但不做折射贴图
   const glassRef = useGlassAttach({ tier: 'frost', tint: 0.12 })
 
@@ -139,7 +308,6 @@ export const ModelLevelPicker = () => {
   }, [loading, models, t])
 
   const maxed = effort >= EFFORT_LEVELS
-  const style = { '--p': effort / EFFORT_LEVELS } as CSSProperties
 
   // 回调 ref 必须稳定，否则滑杆每次 onChange 都会重挂液态玻璃贴图
   const setFloating = useCallback(
@@ -163,7 +331,8 @@ export const ModelLevelPicker = () => {
         onClick={() => setOpen((value) => !value)}
       >
         <span className={styles.model}>{modelLabel(model)}</span>
-        {effort > 0 ? <span className={styles.level}>{t(LEVEL_KEYS[effort])}</span> : null}
+        {/* 固定宽度的等级位：切换档位时按钮宽度不变，面板不会跟着左右跳 */}
+        <span className={styles.level}>{t(LEVEL_KEYS[effort])}</span>
         <span className={styles.arrow}>
           <IconChevronDownOutline14 />
         </span>
@@ -262,7 +431,23 @@ export const ModelLevelPicker = () => {
                       </span>
                     </div>
 
-                    <div className={styles.slider} style={style}>
+                    <div
+                      ref={setSlider}
+                      className={styles.slider}
+                      data-dragging={dragging || undefined}
+                      role="slider"
+                      tabIndex={0}
+                      aria-label={t('modelLevelReasoning')}
+                      aria-valuemin={0}
+                      aria-valuemax={EFFORT_LEVELS}
+                      aria-valuenow={effort}
+                      aria-valuetext={t(LEVEL_KEYS[effort])}
+                      onPointerDown={onPointerDown}
+                      onPointerMove={onPointerMove}
+                      onPointerUp={stopDrag}
+                      onPointerCancel={stopDrag}
+                      onKeyDown={onKeyDown}
+                    >
                       <div className={styles.track}>
                         <span className={styles.fill} />
                         <span className={styles.stars} aria-hidden>
@@ -284,17 +469,6 @@ export const ModelLevelPicker = () => {
                         )}
                         <span className={styles.thumb} />
                       </div>
-                      <input
-                        className={styles.range}
-                        type="range"
-                        min={0}
-                        max={EFFORT_LEVELS}
-                        step={1}
-                        value={effort}
-                        aria-label={t('modelLevelReasoning')}
-                        aria-valuetext={t(LEVEL_KEYS[effort])}
-                        onChange={(event) => setReasoningEffort(Number(event.target.value))}
-                      />
                     </div>
                   </div>
                 </>

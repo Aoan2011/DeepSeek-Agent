@@ -42,9 +42,15 @@
 
 /* 等级文字跟着档位换色：越低越蓝，越高越紫 */
 .level {
+  display: inline-block;
   flex-shrink: 0;
+  width: 32px;
   color: var(--accent);
   font-weight: 500;
+}
+
+.trigger:not([data-level]) .level {
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .arrow {
@@ -263,8 +269,13 @@ body[data-ds-dark-theme] .card[data-max] {
 .slider {
   position: relative;
   height: 28px;
-  cursor: pointer;
+  cursor: grab;
   touch-action: none;
+  outline: none;
+}
+
+.slider[data-dragging] {
+  cursor: grabbing;
 }
 
 /* 轨道本身就是那条厚胶囊：视频里没有额外的外框 */
@@ -288,7 +299,7 @@ body[data-ds-dark-theme] .track {
   border-color: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
-.slider:focus-within .track {
+.slider:focus-visible .track {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
@@ -416,22 +427,8 @@ body[data-ds-dark-theme] .dot {
   transform: translate(-50%, -50%) scale(1.04);
 }
 
-/* 原生 range 只负责取值和拖拽，视觉完全由上面的层决定 */
-.range {
-  position: absolute;
-  top: 0;
-  left: 13px;
-  width: calc(100% - 26px);
-  height: 28px;
-  margin: 0;
-  opacity: 0;
-  cursor: grab;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-.range:active {
-  cursor: grabbing;
+.slider[data-dragging] .thumb {
+  transform: translate(-50%, -50%) scale(1.07);
 }
 
 /* ---------- 模型子页 ---------- */

@@ -2,9 +2,37 @@
 
 [English](README.en.md) | 简体中文
 
+[![Deploy GitHub Pages](https://github.com/Aoan2011/DeepSeek-Agent/actions/workflows/pages.yml/badge.svg)](https://github.com/Aoan2011/DeepSeek-Agent/actions/workflows/pages.yml)
+[![CI](https://github.com/Aoan2011/DeepSeek-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Aoan2011/DeepSeek-Agent/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/y/Aoan2011/DeepSeek-Agent)
+![GitHub last commit](https://img.shields.io/github/last-commit/Aoan2011/DeepSeek-Agent)
+![GitHub Created At](https://img.shields.io/github/created-at/Aoan2011/DeepSeek-Agent)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Aoan2011/DeepSeek-Agent/total)
+![GitHub Issues](https://img.shields.io/github/issues/Aoan2011/DeepSeek-Agent)
+![GitHub Discussions (all)](https://img.shields.io/github/discussions/all/Aoan2011/DeepSeek-Agent)
+![GitHub forks](https://img.shields.io/github/forks/Aoan2011/DeepSeek-Agent)
+![GitHub Repo stars](https://img.shields.io/github/stars/Aoan2011/DeepSeek-Agent)
+![GitHub Tag](https://img.shields.io/github/v/tag/Aoan2011/DeepSeek-Agent)
+
 在 [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo) 基础上做的 Agent 化改造：把纯聊天前端变成能**调用工具、连接本机、读取网页、接入 MCP、预览工作区改动**的助手。界面沿用原有设计语言，新增的动效、卡片与面板都建立在同一套 token 上。
 
 ![欢迎页](docs/screenshots/welcome-light.png)
+
+## 开发前言
+### 相比[Aoan2011/One-Cedric](https://github.com/Aoan2011/One-Cedric)的能力差异
+| 能力 | [One-Cedric](https://github.com/Aoan2011/One-Cedric) | [DeepSeek Agent](https://github.com/Aoan2011/DeepSeek-Agent) |
+| --- | --- | --- |
+| 语言 | Python | TypeScript + Python |
+| 协议 | OpenAI Chat Completion | Anthropic & Reasponse API|
+| 工具调用 | 桌面端 | 浏览器端 + 桌面端|
+| 核心 | CLI | 浏览器前端 |
+| 浏览器扩展 | 无 | 有 |
+| 完善程度 | 实验性 | 可用 |
+| 实用性 | 低 | 高 |
+
+作者于 2026 年 11 月 14 日在[这篇文章](https://www.ithome.com/1/026/960.htm)上看到了最初的[deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo)，觉得非常有意思，就想fork一个下来。
 
 ## 相比原版新增的能力
 
@@ -247,7 +275,9 @@ http://localhost:8090/?desktop=ws%3A//127.0.0.1%3A8765&token=<令牌>
 | `desk_text_stats` | 行数、字符数、词数、字节与估算 token |
 | `desk_clipboard` | 读写系统剪贴板（读需要确认） |
 | `desk_git` | 只读 git 查询：status / log / diff / branch / show |
-| `desk_workspace` | 列出 / 切换本机工作区；额外目录写在 `~/.agentdesk/config.json` 的 `workspaces` 或 `AGENTDESK_WORKSPACES` 里 |
+| `desk_workspace` | 列出 / 切换本机工作区；额外目录写在 `~/.agentdesk/config.json` 的 `workspaces` 或 `AGENTDESK_WORKSPACES` 里，`--sandbox` 指定的目录始终在列表最前 |
+
+**工作区跟随**：网页端选择器显示的始终是桌面端的当前工作区——桌面端重启换了 `--sandbox`、或在别处调用了 `desk_workspace use`，选择器会自动跟上；桌面端掉线时页面会清掉旧快照并按退避自动重连，恢复后无需重选。`--sandbox` 指定的目录（包括 `.agentworkspace` 这类隐藏目录）现在也会出现在列表里，不会再一直显示旧的默认目录。
 
 检索与格式（19 个）：`desk_glob`、`desk_diff`、`desk_calculate`、`desk_time`、`desk_regex`、`desk_codec`、`desk_csv`、`desk_sqlite`、`desk_tree`、`desk_dupes`、`desk_download`、`desk_net`、`desk_password`、`desk_markdown`、`desk_similarity`、`desk_pdf`、`desk_image`、`desk_qr`、`desk_office`。
 
@@ -348,7 +378,7 @@ google-chrome --pack-extension=extension --pack-extension-key=dist-ext/agent-bri
 
 ![模型选择](docs/screenshots/model-picker.png)
 
-**思考强度**有 0-4 五档：关闭 / Low / High / Max / Ultra，全部收在同一个面板里。卡片里是一条厚胶囊滑杆，渐变色逐档偏紫——Low 是纯蓝、Ultra 是深紫；未到达的档位用小圆点标出，高档位还会浮出向左漂移、明暗闪烁的白色光点。拖到最高档时，标题行会短暂变成「更快消耗使用额度」，约 1.5 秒后淡回「推理等级 Ultra」，卡片边框则保持亮起。档位会真实写进请求：
+**思考强度**有 0-4 五档：关闭 / Low / High / Max / Ultra，全部收在同一个面板里。卡片里是一条厚胶囊滑杆：拖动时指数阻尼跟手、松手吸附到最近档位并轻微过冲回弹；渐变色逐档偏紫——Low 是纯蓝、Ultra 是深紫；未到达的档位用小圆点标出，高档位还会浮出向左漂移、明暗闪烁的白色光点。拖到最高档时，标题行会短暂变成「更快消耗使用额度」，约 1.5 秒后淡回「推理等级 Ultra」，卡片边框则保持亮起。档位会真实写进请求：
 
 ```json
 {
