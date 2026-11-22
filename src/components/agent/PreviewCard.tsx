@@ -94,7 +94,7 @@ export const PreviewCard = ({ preview }: { preview: PreviewMeta }) => {
         </span>
         <span className={styles.spacer} />
         {preview.url ? (
-          <a className={styles.link} href={preview.url} target="_blank" rel="noreferrer">
+          <a className={styles.link} href={preview.url} target="_blank" rel="noopener noreferrer">
             {t('previewOpen')}
             <IconRightUpOutline14 />
           </a>

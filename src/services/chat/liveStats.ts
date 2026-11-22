@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { MessageUsage } from '../api/types.js'
+import { recordUsage } from '../usage.js'
 
 /**
  * 底部状态条的实时数据源。
@@ -112,6 +113,20 @@ export const noteUsage = (usage: MessageUsage | undefined, phase: 'start' | 'del
     return
   }
   const now = Date.now()
+  // 本地账本：开始记输入（命中 + 未命中），结束记输出；金额按官方价估算
+  const model = useLiveStats.getState().run?.model
+  if (phase === 'start') {
+    recordUsage(
+      {
+        model,
+        cacheHit: usage.cache_read_input_tokens,
+        cacheMiss: usage.input_tokens + usage.cache_creation_input_tokens,
+      },
+      'input'
+    )
+  } else {
+    recordUsage({ model, output: usage.output_tokens }, 'output')
+  }
   patchRun((run) =>
     phase === 'start'
       ? {

@@ -19,6 +19,7 @@ import { showToast } from '../base/toastState.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { closeMobileSider, useMobileSider } from './mobileSiderState.js'
 import { SessionItem } from './SessionItem.js'
+import { UsageCard } from './UsageCard.js'
 import { useLiquidGlass } from '../glass/useLiquidGlass.js'
 import styles from './Sider.module.css'
 
@@ -141,6 +142,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           </span>
           <span className={styles.settingsLabel}>{t('settings')}</span>
         </button>
+        <UsageCard />
       </div>
       {deleting ? (
         <Modal

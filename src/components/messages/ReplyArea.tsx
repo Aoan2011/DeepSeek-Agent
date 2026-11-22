@@ -294,7 +294,7 @@ const PageLink = ({ page, failedTip }: { page: PageItem; failedTip?: string }) =
         <span className={styles.pageText}>{page.title}</span>
       </Tooltip>
     ) : (
-      <a className={styles.pageText} href={page.url} target="_blank" rel="noreferrer">
+      <a className={styles.pageText} href={page.url} target="_blank" rel="noopener noreferrer">
         {page.title}
       </a>
     )}

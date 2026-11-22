@@ -2,7 +2,7 @@ import { getTool } from '../registry.js'
 import { createArtifact, formatBytes } from '../artifacts.js'
 import * as db from '../../chat/db.js'
 import { workspaceSnapshot } from '../../workspace/store.js'
-import { isWebUrl } from '../../../utils/url.js'
+import { isPublicWebUrl } from '../../../utils/url.js'
 import {
   downscaleImage,
   readBase64Payload,
@@ -430,6 +430,10 @@ const fetchPageTool = defineTool(
     } catch {
       return fail(`无效的 URL：${url}`)
     }
+    // 防止被网页内容诱导去访问本机管理接口或云元数据服务
+    if (!isPublicWebUrl(parsed.href)) {
+      return fail('出于安全考虑，不抓取本机、内网或带账号密码的地址')
+    }
 
     // 扩展具备 host_permissions，可绕过 CORS
     const viaExtension = getTool('browser_fetch_page')
@@ -529,8 +533,8 @@ const openUrlTool = defineTool(
     const url = str(input, 'url')
     try {
       const parsed = new URL(url)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        return fail('只支持 http/https 链接')
+      if (!isPublicWebUrl(parsed.href)) {
+        return fail('只允许打开公网的 http/https 链接，本机与内网地址已拦截')
       }
       const opened = window.open(parsed.href, '_blank', 'noopener,noreferrer')
       return opened
@@ -580,8 +584,8 @@ const viewImageTool = defineTool(
     } else if (dataUrl) {
       payload = readBase64Payload(dataUrl)
     } else if (imageUrl) {
-      if (!isWebUrl(imageUrl)) {
-        return fail('image_url 只支持 http/https 地址')
+      if (!isPublicWebUrl(imageUrl)) {
+        return fail('image_url 只支持公网 http/https 地址，本机与内网地址已拦截')
       }
       context.progress('下载图片…')
       try {
@@ -640,8 +644,8 @@ const previewFileTool = defineTool(
     const caption = str(input, 'caption').trim()
     const remote = str(input, 'url').trim()
     if (remote) {
-      if (!isWebUrl(remote)) {
-        return fail('url 只支持 http/https 地址')
+      if (!isPublicWebUrl(remote)) {
+        return fail('url 只支持公网 http/https 地址，本机与内网地址已拦截')
       }
       return ok(`已在回答底部预览 ${remote}`, {
         meta: {

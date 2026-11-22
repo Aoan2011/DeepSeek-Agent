@@ -1,5 +1,6 @@
 import { registerTools } from './registry.js'
 import { browserTools } from './tools/browserTools.js'
+import { utilityTools } from './tools/utilityTools.js'
 import { widgetTools } from './tools/widgetTools.js'
 import { agentTools } from './tools/agentTools.js'
 import { askUserTools } from './tools/askUserTool.js'
@@ -22,6 +23,7 @@ export const initAgent = () => {
   started = true
   registerTools([
     ...browserTools,
+    ...utilityTools,
     ...widgetTools,
     ...agentTools,
     ...askUserTools,

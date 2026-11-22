@@ -203,6 +203,39 @@ export const toolIcon = (name: string, source?: ToolSource) => {
       return <IconEye />
     case 'workspace_write_file':
       return <IconPen />
+    case 'calculate':
+    case 'random_number':
+    case 'random_bytes':
+    case 'password_gen':
+      return <IconBolt />
+    case 'hash_text':
+    case 'jwt_decode':
+    case 'base64_codec':
+    case 'url_codec':
+    case 'json_format':
+    case 'json_query':
+    case 'json_diff':
+    case 'diff_text':
+    case 'template_render':
+      return <IconCode />
+    case 'text_stats':
+    case 'word_frequency':
+    case 'dedupe_lines':
+    case 'strip_invisible':
+    case 'regex_extract':
+    case 'text_similarity':
+      return <IconSearch />
+    case 'markdown_toc':
+      return <IconLayers />
+    case 'date_calc':
+    case 'timezone_convert':
+    case 'cron_next':
+      return <IconClock />
+    case 'csv_to_json':
+    case 'json_to_csv':
+      return <IconDatabase />
+    case 'qrcode_generate':
+      return <IconImage />
     case 'create_tool':
     case 'run_tool_chain':
       return <IconBolt />

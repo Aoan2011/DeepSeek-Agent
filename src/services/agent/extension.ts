@@ -3,6 +3,7 @@ import type { RegisteredTool, ToolContext } from './types.js'
 import { bool, clip, fail, num, objectSchema, ok, str } from './toolKit.js'
 import { createArtifact } from './artifacts.js'
 import { downscaleImage, splitDataUrl } from '../../utils/imageData.js'
+import { isPublicWebUrl } from '../../utils/url.js'
 
 /**
  * 网页与 Chrome 扩展的通信桥：
@@ -62,12 +63,13 @@ export const callExtension = <T = unknown>(
       reject,
       timer,
     })
-    window.postMessage({ [CHANNEL]: true, id, kind: 'request', tool, args }, '*')
+    // 只发给同源窗口：content script 在本页内，不需要 '*' 扩大接收面
+    window.postMessage({ [CHANNEL]: true, id, kind: 'request', tool, args }, window.location.origin)
   })
 }
 
 window.addEventListener('message', (event: MessageEvent) => {
-  if (event.source !== window) {
+  if (event.source !== window || event.origin !== window.location.origin) {
     return
   }
   const data = event.data as Record<string, unknown> | null
@@ -190,6 +192,9 @@ const extensionTools = (): RegisteredTool[] => [
       'network'
     ),
     async (args) => {
+      if (!isPublicWebUrl(str(args, 'url'))) {
+        throw new Error('只允许抓取公网 http/https 地址，本机与内网地址已拦截')
+      }
       const data = (await callExtension<{ title: string; url: string; text: string }>(
         'fetch_page',
         { url: str(args, 'url'), max_chars: num(args, 'max_chars') ?? 12000 },
@@ -355,8 +360,12 @@ const extensionTools = (): RegisteredTool[] => [
       objectSchema({ url: { type: 'string' }, tab_id: { type: 'number' } }, ['url']),
       'write'
     ),
-    async (args) =>
-      text(await callExtension('navigate', { url: str(args, 'url'), tab_id: num(args, 'tab_id') }))
+    async (args) => {
+      if (!isPublicWebUrl(str(args, 'url'))) {
+        throw new Error('只允许跳转到公网 http/https 地址，本机与内网地址已拦截')
+      }
+      return text(await callExtension('navigate', { url: str(args, 'url'), tab_id: num(args, 'tab_id') }))
+    }
   ),
   makeTool(
     definition(

@@ -53,6 +53,7 @@ import {
   LookSetting,
 } from './AppearanceSettings.js'
 import { SettingCell, ToggleCell } from './SettingCell.js'
+import { UsageSetting } from './UsageSetting.js'
 import { WorkspaceSetting } from './WorkspaceSetting.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
@@ -130,6 +131,7 @@ const SettingsContent = () => {
               <LocaleSetting />
               <TtsVoiceSetting />
               <LocationSetting />
+              <UsageSetting />
             </>
           ) : section === 'appearance' ? (
             <>
