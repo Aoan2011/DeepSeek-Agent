@@ -63,13 +63,20 @@ export const callExtension = <T = unknown>(
       reject,
       timer,
     })
-    // 只发给同源窗口：content script 在本页内，不需要 '*' 扩大接收面
-    window.postMessage({ [CHANNEL]: true, id, kind: 'request', tool, args }, window.location.origin)
+    // targetOrigin 只是再收一道口子：window.postMessage 本来就只投递给这一个窗口。
+    // http(s) 下用当前 origin；file:// 等场景 origin 不是合法 targetOrigin，退回 '*'。
+    const targetOrigin = /^https?:$/.test(window.location.protocol)
+      ? window.location.origin
+      : '*'
+    window.postMessage({ [CHANNEL]: true, id, kind: 'request', tool, args }, targetOrigin)
   })
 }
 
 window.addEventListener('message', (event: MessageEvent) => {
-  if (event.source !== window || event.origin !== window.location.origin) {
+  // 信任边界就是「同一个窗口」：content script 与页面共享 window，
+  // 部分浏览器下 isolated world 发出的消息 origin 不保证与页面一致，不能用 origin 严格相等拦截。
+  // 不同窗口伪造不了 source === window 的消息，这一条已经排除了外部来源。
+  if (event.source !== window) {
     return
   }
   const data = event.data as Record<string, unknown> | null
@@ -78,6 +85,13 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
   if (data.kind === 'ready') {
     setAvailable(true)
+    // content script 刚注入就广播过 ready；立刻 ping 一次把工具注册上，
+    // 不依赖页面启动时的有限次重试（扩展晚装/晚注入时会错过）。
+    void pingExtension().then((found) => {
+      if (found) {
+        setupExtensionTools()
+      }
+    })
     return
   }
   const id = typeof data.id === 'string' ? data.id : ''
@@ -397,29 +411,25 @@ export const setupExtensionTools = () => {
 
 export const teardownExtensionTools = () => unregisterBySource('extension')
 
-/** 页面加载后探测；扩展可能稍后才注入，重试几次 */
+/** 页面加载后探测；扩展可能稍后才注入，未连接时持续探测而不是放弃 */
 export const initExtensionBridge = () => {
-  let attempts = 0
   const check = async () => {
-    attempts += 1
     const found = await pingExtension()
     if (found) {
       setupExtensionTools()
-      return
-    }
-    if (attempts < 6) {
-      window.setTimeout(() => void check(), 1200 * attempts)
     }
   }
   void check()
+  // 未连接时每 5 秒再试：扩展重载、浏览器恢复休眠标签页后都能自愈
+  window.setInterval(() => {
+    if (!available) {
+      void check()
+    }
+  }, 5000)
   // 扩展被重载或页面从后台恢复时重新探测
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !available) {
-      void pingExtension().then((found) => {
-        if (found) {
-          setupExtensionTools()
-        }
-      })
+      void check()
     }
   })
 }
