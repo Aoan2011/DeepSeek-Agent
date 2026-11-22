@@ -25,6 +25,8 @@ export class DesktopClient {
   private nextId = 1
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
   private info: DesktopInfo | null = null
+  /** 桌面端意外断开时回调；主动 close() 不触发 */
+  onClose: (() => void) | null = null
 
   constructor(
     private readonly url: string,
@@ -79,7 +81,12 @@ export class DesktopClient {
       }
       socket.onclose = () => {
         clearTimeout(timer)
+        if (this.socket !== socket) {
+          return
+        }
+        this.socket = null
         this.failAll('桌面端连接已断开')
+        this.onClose?.()
       }
     })
   }
@@ -202,8 +209,10 @@ export class DesktopClient {
 
   close() {
     this.failAll('桌面端连接已关闭')
-    this.socket?.close()
+    const socket = this.socket
+    // 先清空引用，onclose 就不会被当成意外断开
     this.socket = null
+    socket?.close()
     this.info = null
   }
 }

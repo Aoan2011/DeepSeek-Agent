@@ -24,15 +24,18 @@ def config_path() -> Path:
     return app_dir() / "config.json"
 
 
-def _is_hidden(path: Path) -> bool:
-    """隐藏目录基本是配置/缓存目录，不该出现在工作区选择器里。"""
-    return path.name.startswith(".")
+def _is_app_dir(path: Path) -> bool:
+    """只有应用自己的配置目录要排除，隐藏目录可能是用户故意选的工作区。"""
+    try:
+        return path.expanduser().resolve() == app_dir().resolve()
+    except OSError:
+        return False
 
 
 def default_sandbox() -> Path:
     """沙箱根；如果不小心指到了应用自己的配置目录，退回默认工作区。"""
     raw = Path(os.environ.get("AGENTDESK_SANDBOX", Path.home() / "AgentWorkspace")).expanduser()
-    if _is_hidden(raw) or raw.resolve() == app_dir().resolve():
+    if _is_app_dir(raw):
         return Path.home() / "AgentWorkspace"
     return raw
 
@@ -45,7 +48,7 @@ def default_workspaces() -> list[Path]:
         text = item.strip()
         if text:
             candidate = Path(text).expanduser()
-            if not _is_hidden(candidate):
+            if not _is_app_dir(candidate):
                 roots.append(candidate)
     return roots
 
@@ -81,12 +84,14 @@ class Settings:
     workspaces: list[Path] = field(default_factory=default_workspaces)
 
     def configured_workspaces(self) -> list[Path]:
-        """合并 config.json 里的 workspaces，去重并保持顺序。
+        """合并当前沙箱、命令行与 config.json 里的 workspaces，去重并保持顺序。
 
-        隐藏目录（~/.agentdesk、~/.agentdesktop 这类配置目录）直接跳过：
-        它们以前会被当成工作区显示在网页端的选择器里，看起来像是「工作区一直是 .agentdesk」。
+        当前沙箱永远排在第一个：用 --sandbox 指定的目录以前不会出现在列表里，
+        网页端只能显示旧的默认工作区，看起来像是「怎么设置都不生效」。
+        只排除应用自己的配置目录（~/.agentdesk），隐藏目录只要用户明确指定就保留。
         """
         candidates = [
+            self.sandbox,
             *self.workspaces,
             *[
                 Path(item).expanduser()
@@ -97,25 +102,28 @@ class Settings:
         roots: list[Path] = []
         config_dir = app_dir().resolve()
         for path in candidates:
-            resolved = path.expanduser()
-            if _is_hidden(resolved) or resolved.resolve() == config_dir:
+            try:
+                resolved = path.expanduser().resolve()
+            except OSError:
+                continue
+            if resolved == config_dir:
                 continue
             if resolved not in roots:
                 roots.append(resolved)
         if not roots:
-            roots.append(default_sandbox())
+            roots.append(default_sandbox().resolve())
         return roots
 
     def describe(self) -> dict:
-        current = str(self.sandbox)
+        current = self.sandbox.expanduser().resolve()
         return {
             "name": "AgentDesk",
             "version": "1.0.0",
             "platform": f"{sys.platform} · Python {sys.version.split()[0]}",
-            "sandbox": current,
+            "sandbox": str(current),
             "allowed": [str(path) for path in self.allowed_paths],
             "workspaces": [
-                {"name": path.name or str(path), "path": str(path), "current": str(path) == current}
+                {"name": path.name or str(path), "path": str(path), "current": path == current}
                 for path in self.configured_workspaces()
             ],
             "capabilities": ["files", "shell", "python", "mcp"],

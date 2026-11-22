@@ -39,6 +39,96 @@ export const useDesktop = create<DesktopStore>(() => ({
 }))
 
 let client: DesktopClient | null = null
+let reconnectTimer: number | null = null
+let heartbeatTimer: number | null = null
+let reconnectAttempt = 0
+/** 主动建立连接后为 true；主动断开时置 false，用于区分「掉线」与「关掉」 */
+let wantConnected = false
+
+const INIT_PARAMS = {
+  protocolVersion: '2024-11-05',
+  clientInfo: { name: 'chat-agent', version: '1.0.0' },
+}
+
+const cancelReconnect = () => {
+  if (reconnectTimer !== null) {
+    window.clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+}
+
+const stopHeartbeat = () => {
+  if (heartbeatTimer !== null) {
+    window.clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+}
+
+/**
+ * 桌面端被强杀时，Windows 上的 TCP 可能停在半开状态，浏览器迟迟不触发 onclose。
+ * 每 15 秒 ping 一次，超时就当掉线处理，避免页面一直显示旧的工作区快照。
+ */
+const startHeartbeat = (active: DesktopClient) => {
+  stopHeartbeat()
+  heartbeatTimer = window.setInterval(() => {
+    if (client !== active) {
+      return
+    }
+    void active.request('ping', undefined, 4000).catch(() => {
+      if (client === active) {
+        handleUnexpectedClose(active)
+      }
+    })
+  }, 10000)
+}
+
+const scheduleReconnect = () => {
+  if (!wantConnected || reconnectTimer !== null || reconnectAttempt >= 5) {
+    return
+  }
+  const delay = Math.min(10000, 1200 * 2 ** reconnectAttempt)
+  reconnectAttempt += 1
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = null
+    if (wantConnected) {
+      void connectDesktop()
+    }
+  }, delay)
+}
+
+/** 关掉当前客户端；先摘掉回调，避免主动断开触发重连 */
+const teardownClient = () => {
+  stopHeartbeat()
+  const active = client
+  client = null
+  if (active) {
+    active.onClose = null
+    active.close()
+  }
+  unregisterTools((definition) => definition.serverId === 'desktop')
+}
+
+/**
+ * 桌面端掉线：清掉旧的工作区快照（否则页面会一直显示断开前的目录），
+ * 然后按退避重连。桌面端重启换工作区时，这一步会带回新的 serverInfo。
+ */
+const handleUnexpectedClose = (closed: DesktopClient) => {
+  if (client !== closed) {
+    return
+  }
+  stopHeartbeat()
+  client = null
+  closed.onClose = null
+  closed.close()
+  unregisterTools((definition) => definition.serverId === 'desktop')
+  useDesktop.setState({
+    status: 'disconnected',
+    info: undefined,
+    toolCount: 0,
+    error: '桌面端连接已断开，正在重连…',
+  })
+  scheduleReconnect()
+}
 
 const DESKTOP_TOOLS: Record<string, { risk: ToolDefinition['risk']; approval?: boolean; icon: string }> = {
   desk_fs_read: { risk: 'safe', icon: 'file' },
@@ -204,14 +294,22 @@ export const switchDesktopWorkspace = async (path: string): Promise<boolean> => 
 export const connectDesktop = async (url?: string, token?: string): Promise<void> => {
   const target = url ?? useDesktop.getState().url
   const secret = token ?? useDesktop.getState().token
-  disconnectDesktop()
+  cancelReconnect()
+  teardownClient()
+  wantConnected = true
   useDesktop.setState({ status: 'connecting', error: undefined, url: target, token: secret })
   const next = new DesktopClient(target, secret)
   client = next
+  next.onClose = () => handleUnexpectedClose(next)
   try {
     await next.connect()
     const tools = await next.listTools()
+    if (client !== next) {
+      return
+    }
     registerDesktopTools(tools, next)
+    reconnectAttempt = 0
+    startHeartbeat(next)
     useDesktop.setState({
       status: 'connected',
       info: next.serverInfo ?? undefined,
@@ -225,20 +323,52 @@ export const connectDesktop = async (url?: string, token?: string): Promise<void
       // 忽略存储失败
     }
   } catch (error) {
-    next.close()
-    client = null
+    if (client === next) {
+      next.onClose = null
+      next.close()
+      client = null
+    }
+    unregisterTools((definition) => definition.serverId === 'desktop')
     useDesktop.setState({
       status: 'error',
+      info: undefined,
       error: error instanceof Error ? error.message : String(error),
       toolCount: 0,
     })
+    scheduleReconnect()
+  }
+}
+
+/**
+ * 重新拉一次 serverInfo。
+ * 工作区列表只在 initialize 时下发，桌面端重启或改了 config.json 后要靠它更新；
+ * 选择器每次展开都会调用一次，避免一直显示连接时的旧工作区。
+ */
+export const refreshDesktopInfo = async (): Promise<void> => {
+  const active = client
+  if (!active) {
+    return
+  }
+  try {
+    const result = (await active.request('initialize', INIT_PARAMS, 2500)) as
+      | { serverInfo?: DesktopInfo }
+      | undefined
+    if (client === active && result?.serverInfo) {
+      useDesktop.setState({ info: result.serverInfo })
+    }
+  } catch {
+    // 无响应也算掉线：清掉旧快照并重连，不要继续显示旧工作区
+    if (client === active) {
+      handleUnexpectedClose(active)
+    }
   }
 }
 
 export const disconnectDesktop = () => {
-  client?.close()
-  client = null
-  unregisterTools((definition) => definition.serverId === 'desktop')
+  wantConnected = false
+  reconnectAttempt = 0
+  cancelReconnect()
+  teardownClient()
   useDesktop.setState({ status: 'disconnected', info: undefined, toolCount: 0, error: undefined })
 }
 

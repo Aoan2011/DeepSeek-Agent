@@ -24,6 +24,7 @@ export const PillPicker = ({
   value,
   options,
   onChange,
+  onOpen,
   accent,
   footer,
   disabled,
@@ -34,6 +35,8 @@ export const PillPicker = ({
   value: string | null
   options: PillOption[]
   onChange: (value: string) => void
+  /** 展开前触发，用于刷新远端列表（例如桌面端的工作区） */
+  onOpen?: () => void
   /** 选中项高亮色，默认主题色 */
   accent?: 'brand' | 'warn'
   /** 浮层底部的附加操作，例如「打开文件夹…」 */
@@ -57,7 +60,12 @@ export const PillPicker = ({
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={disabled}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) {
+            onOpen?.()
+          }
+          setOpen((value) => !value)
+        }}
       >
         <span className={styles.icon}>{icon}</span>
         {caption ? <span className={styles.caption}>{caption}</span> : null}
