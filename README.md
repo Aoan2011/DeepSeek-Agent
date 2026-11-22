@@ -1,5 +1,7 @@
 # DeepSeek Agent
 
+[English](README.en.md) | 简体中文
+
 在 [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo) 基础上做的 Agent 化改造：把纯聊天前端变成能**调用工具、连接本机、读取网页、接入 MCP、预览工作区改动**的助手。界面沿用原有设计语言，新增的动效、卡片与面板都建立在同一套 token 上。
 
 ![欢迎页](docs/screenshots/welcome-light.png)
@@ -15,6 +17,9 @@
 | 电脑操作 | 桌面端提供截屏、鼠标移动/点击、键盘输入、窗口列表与聚焦，全部走审批 |
 | Markdown 扩展 | 九色打底高亮、手写波浪线、GitHub README 的 `> [!IMPORTANT]` 等五种提示块 |
 | 浏览器内置工具 | 时间日期、定位、天气、通知、剪贴板、网页抓取、文件产物读写等，无需任何后端 |
+| 本地工具集 | 从 one_cedric 移植 26 个纯浏览器工具：计算、随机数、密码、哈希、编码、JSON / CSV、文本统计与相似度、cron、二维码等 |
+| 用量与预算 | 侧栏底部按 DeepSeek 官网价估算花费，显示预算进度、今日用量、高峰 / 空闲时段与下一次切换倒计时 |
+| 毛玻璃与性能 | 设置、Agent 能力、工作区统一为普通毛玻璃；移除折射贴图与逐元素 canvas，输入框压缩到一行起步 |
 | 浏览器扩展 | 读取当前网页、总结、点击输入、滚动、整页截图、标签页管理 |
 | 桌面端（Python + rich） | 本机文件读写改删、命令执行、Python 执行、目录沙箱、本地 stdio MCP 桥接 |
 | MCP 客户端 | 远程 Streamable HTTP / SSE 服务器，以及经桌面端桥接的本地 stdio 服务器 |
@@ -117,10 +122,23 @@ git push -f -u origin main
 | `get_location` | 浏览器定位或设置里的手动位置 | 只读 |
 | `get_weather` | 按城市或坐标取实况与预报 | 只读 |
 | `send_notification` | 系统通知 | 只读 |
-| `read_clipboard` / `write_clipboard` | 读写剪贴板 | 写 |
-| `fetch_url` | 抓取网页正文（受 CORS 限制） | 网络 |
-| `create_file` / `read_file` / `list_files` | 产物文件读写（IndexedDB） | 写 |
-| `search_history` | 检索本地会话 | 只读 |
+| `read_clipboard` / `write_clipboard` | 读写剪贴板 | 读 / 写 |
+| `fetch_webpage` | 抓取网页正文（受 CORS 限制，拦截本机与内网地址） | 网络 |
+| `create_file` | 生成可预览、可下载的文件产物（IndexedDB） | 写 |
+| `preview_file` | 在回答底部内联预览代码、Markdown、HTML、CSV | 只读 |
+| `view_image` | 把图片缩到模型可接受的长边后回传 | 只读 |
+| `open_url` | 在公网地址上新开标签页 | 网络 |
+
+另有 26 个从 one_cedric 移植的纯浏览器工具，覆盖日常计算与文本处理：
+
+| 分组 | 工具 |
+| --- | --- |
+| 计算与随机 | `calculate` `random_number` `random_bytes` `password_gen` |
+| 编码与哈希 | `base64_codec` `url_codec` `hash_text` `jwt_decode` |
+| JSON / CSV | `json_format` `json_query` `json_diff` `csv_to_json` `json_to_csv` |
+| 文本 | `text_stats` `word_frequency` `dedupe_lines` `strip_invisible` `regex_extract` `text_similarity` `markdown_toc` `template_render` `diff_text` |
+| 时间 | `date_calc` `timezone_convert` `cron_next` |
+| 其他 | `qrcode_generate` |
 
 工具结果超过阈值会截断，避免长文档占满上下文。
 
@@ -358,12 +376,30 @@ google-chrome --pack-extension=extension --pack-extension-key=dist-ext/agent-bri
 
 解析在 `src/services/markdown/parse.ts` 完成：高亮与波浪线在文本节点上换成自定义节点，alert 则把引用块首行的标记摘掉再改节点类型，渲染器不必回读原文。
 
+## 用量与预算
+
+侧栏底部新增一张用量卡片，参考 DeepSeek 控制台的额度样式：预算进度条、今日花费占比、今日 tokens 与模型数、当前时段（高峰 / 空闲 / 周末 / 节假日）以及下一次切换的倒计时，最下面是 API Key 登录状态。点击「官网价」可直接打开官方价目表。
+
+金额按 DeepSeek 官网价估算（人民币 / 百万 tokens）：
+
+| 模型 | 缓存命中（空闲 / 高峰） | 缓存未命中（空闲 / 高峰） | 输出（空闲 / 高峰） |
+| --- | --- | --- | --- |
+| `deepseek-flash` | ¥0.02 / ¥0.04 | ¥1 / ¥2 | ¥4 / ¥8 |
+| `deepseek-v4-pro` | ¥0.15 / ¥0.30 | ¥4.5 / ¥9 | ¥13.5 / ¥27 |
+
+高峰时段为北京时间周一至周五 9:00-12:00、14:00-18:00（法定节假日除外），其余时间与周末全天为空闲价。价格以[官方价目表](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)为准；本地账本只保存 token 数与估算金额，不记录对话内容，预算在「设置 → 通用 → 用量与预算」里修改或清空。
+
 ## 安全模型
 
 | 层 | 措施 |
 | --- | --- |
 | 模型 | 工具声明带来源与风险等级，写/执行类默认要求审批 |
 | 界面 | 审批弹窗展示参数摘要，长文本截断；可「允许一次」或「本会话内允许」 |
+| 网络 | 抓取网页、查看远程图片与新开链接只允许公网 http(s)，拦截 localhost、内网段与云元数据地址（防 SSRF） |
+| 渲染 | Mermaid 以 `securityLevel: strict` 渲染，注入前再净化一次 SVG（去脚本、事件属性与 `javascript:` 链接）；KaTeX / Prism 输出走受控 HTML |
+| 链接 | 所有 `target="_blank"` 链接都带 `noopener noreferrer`；页面声明 `referrer` 策略 |
+| 内容策略 | `index.html` 设置最小 CSP：`object-src 'none'`、`base-uri 'self'`、`form-action 'none'` |
+| 扩展桥 | `postMessage` 只发往同源窗口并校验 `event.origin`，不再使用 `'*'` |
 | 桌面端 | 目录沙箱 + 令牌 + Origin 校验；越界路径在工具层直接拒绝 |
 | 扩展 | 不主动上传数据；仅在 Agent 调用时读取当前标签页 |
 | 数据 | API Key 与会话都在本地，产物存 IndexedDB，不经过第三方服务器 |

@@ -9,6 +9,7 @@ build/
 .env.*
 !.env.example
 tmp/
+.tmp/
 
 # Python 桌面端
 __pycache__/
@@ -24,5 +25,5 @@ dist-ext/*
 !dist-ext/*.crx
 !dist-ext/README.md
 
-.workbuddy/*
-.refact/*
+.workbuddy/
+.refact/

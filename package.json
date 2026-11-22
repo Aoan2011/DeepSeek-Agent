@@ -1,13 +1,13 @@
 {
   "name": "deepseek-agent",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "DeepSeek Agent：能调用工具、连接本机与 MCP、预览工作区 diff 的静态 Agent。",
   "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "rspack serve -c rspack.config.ts",
-    "build": "rm -rf dist && NODE_ENV=production rspack build -c rspack.config.ts",
+    "build": "rm -rf dist && rspack build -c rspack.config.ts --mode production",
     "type": "tsc -p tsconfig.json",
     "lint": "oxlint src rspack.config.ts",
     "format": "oxfmt --write ."

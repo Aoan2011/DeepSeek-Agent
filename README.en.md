@@ -83,6 +83,7 @@ Load it via `chrome://extensions` → Developer mode → Load unpacked → `exte
 - **Inline previews** via `preview_file`: code, Markdown, HTML pages, images and CSV are rendered in a widget at the bottom of the answer.
 - **Image reading** via `view_image`: base64 data URLs, artifact ids or remote URLs are downscaled and sent to the model as image blocks.
 - **Questions** via `ask_user`, **widgets** via `show_widget` (sandboxed iframe).
+- **26 browser-side utilities ported from one_cedric**: `calculate`, `random_number`, `random_bytes`, `password_gen`, `hash_text`, `base64_codec`, `url_codec`, `jwt_decode`, `json_format`, `json_query`, `json_diff`, `csv_to_json`, `json_to_csv`, `text_stats`, `word_frequency`, `dedupe_lines`, `strip_invisible`, `regex_extract`, `text_similarity`, `markdown_toc`, `template_render`, `diff_text`, `date_calc`, `timezone_convert`, `cron_next`, `qrcode_generate`. All run locally with no backend.
 - **Request sanitising.** Tool output from pages and screenshots can contain lone surrogates or raw control characters; they are replaced before the request is serialised, truncation never splits a surrogate pair, and a 400 JSON-parse error triggers one retry with images stripped and long results clipped.
 
 ### Goals
@@ -110,8 +111,24 @@ Load it via `chrome://extensions` → Developer mode → Load unpacked → `exte
 - Draft token count while typing, with a 220 ms debounce.
 - Optional **exact** counting using the real DeepSeek vocabulary (BPE, from `tokenizer.json`), loaded lazily as a separate 1.5 MB asset; the app falls back to a calibrated estimate when the asset is unavailable (`file://`).
 
+### Usage and budget
+
+The bottom of the sidebar shows a local usage card modelled on the DeepSeek console: budget progress, today's spend and share of budget, today's tokens and model count, the current rate window (peak / off-peak / weekend / holiday) with a countdown to the next switch, and the API-key sign-in state. "Official rates" opens DeepSeek's price list.
+
+Costs are estimated from the official rates (CNY per 1M tokens):
+
+| Model | Cache hit (off-peak / peak) | Cache miss (off-peak / peak) | Output (off-peak / peak) |
+| --- | --- | --- | --- |
+| `deepseek-flash` | ¥0.02 / ¥0.04 | ¥1 / ¥2 | ¥4 / ¥8 |
+| `deepseek-v4-pro` | ¥0.15 / ¥0.30 | ¥4.5 / ¥9 | ¥13.5 / ¥27 |
+
+Peak hours are 09:00–12:00 and 14:00–18:00 Beijing time, Monday to Friday, excluding Chinese public holidays; weekends and all other hours are billed off-peak. The [official price list](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) is authoritative. The local ledger stores token counts and estimated cost only — never conversation content — and can be edited or cleared under **Settings → General → Usage and budget**.
+
 ### Performance and motion
 
+- Settings surfaces (Settings, Agent capabilities, Workspaces) use plain frosted glass: one translucent layer plus a single `backdrop-filter`, no displacement maps or per-element canvas work.
+- Glass strength is now two blur levels (heavy 28px / standard 18px) or off; the old refraction path has been removed, which was the main source of input and scroll jank.
+- The composer starts at one line and grows to about seven; long prompts no longer take over the screen.
 - Settings → **Appearance & motion**: global intensity, animation speed multiplier, and per-feature toggles (aurora, shimmer, transitions, running pulse).
 - Reduced motion is honoured from the OS as well; `html[data-motion]` and the `--ds-anim-scale` variable drive every animation.
 
@@ -119,11 +136,20 @@ Load it via `chrome://extensions` → Developer mode → Load unpacked → `exte
 
 | Group | Contents |
 | --- | --- |
-| General | Theme, language, read-aloud voice, location |
-| Appearance & motion | Motion intensity, animation speed, per-effect toggles |
-| Agent | Tool toggle, approval default, max steps, parallel tools, background tasks, token counting, custom system prompt, custom prompts (four seeded templates), sampling, demo mode |
+| General | Theme, language, read-aloud voice, location, usage budget and price rates |
+| Appearance & motion | Visual style, glass strength, motion intensity, animation speed, per-effect toggles |
+| Agent | Tool toggle, approval default, max steps, parallel tools, background tasks, token counting, **pre-filled system prompt** (editable, reset to default), custom prompts (four seeded templates), sampling, demo mode |
 | Workspaces | List, refresh and remove workspaces |
 | Data | API key, import, export, delete everything |
+
+## Security
+
+- **Network egress.** `fetch_webpage`, remote `view_image`, `open_url`, extension navigate/fetch and preview URLs accept only public `http(s)` addresses. `localhost`, private IPv4/IPv6 ranges, `.local` / `.internal` hosts and URLs with embedded credentials are rejected to reduce SSRF risk from injected page content.
+- **HTML injection.** Mermaid renders with `securityLevel: 'strict'`, and the resulting SVG is sanitised again right before `dangerouslySetInnerHTML` (scripts, iframes, event handlers, `javascript:` links and CSS expressions removed). KaTeX and Prism output remain generated-only HTML.
+- **Links.** Every `target="_blank"` link uses `rel="noopener noreferrer"`; the page declares a `referrer` policy.
+- **Content Security Policy.** `index.html` ships a minimal CSP: `object-src 'none'; base-uri 'self'; form-action 'none'`.
+- **Extension bridge.** `postMessage` targets the current origin instead of `'*'`, and incoming messages are accepted only from the same window and origin.
+- **Local data.** The API key and settings live in `localStorage`; conversations and artifacts live in `IndexedDB`. Exported archives and shared conversations never include the API key.
 
 ## Data and storage
 

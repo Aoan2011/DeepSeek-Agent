@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from '@rspack/cli'
 import { rspack, type Configuration } from '@rspack/core'
 
-const dev = process.env.NODE_ENV !== 'production'
+// Windows 的 cmd 不支持 `NODE_ENV=production cmd`，同时认 CLI 的 --mode production，
+// 这样 `pnpm build` 在 Windows / macOS / Linux 上行为一致。
+const production =
+  process.env.NODE_ENV === 'production' || process.argv.includes('production')
+const dev = !production
 const targets = ['chrome >= 105', 'edge >= 105', 'safari >= 16', 'firefox >= 110']
 const root = path.dirname(fileURLToPath(import.meta.url))
 const { version } = JSON.parse(
