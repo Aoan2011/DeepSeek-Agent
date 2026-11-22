@@ -25,5 +25,5 @@ dist-ext/*
 !dist-ext/*.crx
 !dist-ext/README.md
 
-.workbuddy/
-.refact/
+/.workbuddy/
+/.refact/
