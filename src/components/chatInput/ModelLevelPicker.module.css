@@ -1,0 +1,418 @@
+/* 模型 + 推理等级：收起时是输入框底部的一行文字，展开后是一张玻璃面板 */
+.trigger {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  max-width: 230px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.18s var(--ds-ease-in-out),
+    border-color 0.18s var(--ds-ease-in-out),
+    color 0.18s var(--ds-ease-in-out);
+}
+
+.trigger:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.trigger.open {
+  background: var(--dsw-alias-interactive-bg-active);
+  color: var(--dsw-alias-label-primary);
+}
+
+.model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.separator {
+  flex-shrink: 0;
+  color: var(--dsw-alias-label-caption);
+}
+
+.level {
+  flex-shrink: 0;
+  color: var(--dsw-alias-brand-text);
+  font-weight: 600;
+}
+
+.arrow {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--dsw-alias-label-caption);
+  transition: transform 0.18s ease;
+}
+
+.open .arrow {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 1180px) {
+  .trigger {
+    max-width: 168px;
+  }
+}
+
+/* ---------- 面板 ---------- */
+
+.panel {
+  position: fixed;
+  z-index: 1050;
+  box-sizing: border-box;
+  width: 302px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 16px;
+  background: var(--dsw-specific-menu);
+  box-shadow:
+    0 20px 52px rgba(20, 24, 45, 0.2),
+    0 2px 8px rgba(20, 24, 45, 0.08);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  animation: panelIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+body[data-ds-dark-theme] .panel {
+  background: rgba(28, 30, 36, 0.86);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.panel[data-max] {
+  box-shadow:
+    0 20px 56px rgba(91, 71, 235, 0.3),
+    0 0 0 1px rgba(124, 92, 255, 0.16),
+    0 2px 8px rgba(20, 24, 45, 0.08);
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 26px;
+}
+
+.rowLabel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11.5px;
+  line-height: 16px;
+}
+
+.rowValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 200px;
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.rowValue:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.rowArrow {
+  display: inline-flex;
+  align-items: center;
+  color: var(--dsw-alias-label-caption);
+  transition: transform 0.18s ease;
+}
+
+.rowArrow[data-open] {
+  transform: rotate(180deg);
+}
+
+.levelValue {
+  color: #7c5cff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+body[data-ds-dark-theme] .levelValue {
+  color: #b9a6ff;
+}
+
+.models {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 188px;
+  margin-top: 2px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.optionActive {
+  background: var(--dsw-alias-button-ghost-active-fill);
+}
+
+.optionActive > svg {
+  flex-shrink: 0;
+  color: var(--dsw-alias-brand-text);
+}
+
+.optionMain {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0;
+}
+
+.optionName {
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 18px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionId {
+  overflow: hidden;
+  color: var(--dsw-alias-label-caption);
+  font-size: 10.5px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 1px;
+}
+
+.source {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-caption);
+  font-size: 10.5px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.refresh {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-brand-text);
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.refresh:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.refresh:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.refresh svg {
+  width: 11px;
+  height: 11px;
+}
+
+.spinning svg {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.divider {
+  height: 1px;
+  margin: 10px 0;
+  background: var(--dsw-alias-border-l2);
+}
+
+/* ---------- 推理等级滑杆 ---------- */
+
+.sliderWrap {
+  position: relative;
+  height: 34px;
+  margin: 2px 0 0;
+  cursor: pointer;
+}
+
+.track {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  right: 6px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(109, 92, 255, 0.16);
+  box-shadow: inset 0 1px 2px rgba(20, 16, 48, 0.12);
+  transform: translateY(-50%);
+}
+
+body[data-ds-dark-theme] .track {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(100% * var(--p));
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 56%, #a855f7 84%, #e9d5ff 100%);
+  transition: width 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 满档时前端更亮，像视频里的 Ultra 状态 */
+.panel[data-max] .fill {
+  background: linear-gradient(90deg, #6d28d9 0%, #8b5cf6 48%, #d8b4fe 82%, #ffffff 100%);
+}
+
+.glow {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: calc(100% * var(--p));
+  height: 20px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(79, 70, 229, 0.3), rgba(168, 85, 247, 0.36));
+  filter: blur(9px);
+  transform: translateY(-50%);
+  opacity: 0.7;
+  transition:
+    width 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.panel[data-max] .glow {
+  opacity: 1;
+  background: linear-gradient(90deg, rgba(109, 40, 217, 0.36), rgba(255, 255, 255, 0.4));
+}
+
+.thumb {
+  position: absolute;
+  top: 50%;
+  left: calc(100% * var(--p));
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 1px 4px rgba(20, 16, 48, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 0 12px rgba(168, 85, 247, 0.45);
+  transform: translate(-50%, -50%);
+  transition: left 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.panel[data-max] .thumb {
+  box-shadow:
+    0 1px 4px rgba(20, 16, 48, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.9),
+    0 0 18px rgba(196, 181, 253, 0.85);
+}
+
+.range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.hint {
+  color: var(--dsw-alias-label-caption);
+  font-size: 10.5px;
+  line-height: 15px;
+}
+
+.hint[data-warn] {
+  color: #7c5cff;
+  font-weight: 500;
+}
+
+body[data-ds-dark-theme] .hint[data-warn] {
+  color: #b9a6ff;
+}

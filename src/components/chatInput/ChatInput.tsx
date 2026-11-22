@@ -30,8 +30,7 @@ import { DraftAttachments } from './DraftAttachments.js'
 import { useVoiceInput } from './useVoiceInput.js'
 import { VoiceButton } from './VoiceButton.js'
 import { Spectrum } from './Spectrum.js'
-import { ModelPicker } from './ModelPicker.js'
-import { ThinkingSlider } from './ThinkingSlider.js'
+import { ModelLevelPicker } from './ModelLevelPicker.js'
 import { ContextRing } from './ContextRing.js'
 import { AskUserPanel } from '../agent/AskUserPanel.js'
 import { ApprovalPanel } from '../agent/ApprovalPanel.js'
@@ -226,8 +225,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       <div className={styles.functionRow}>
         {/* 模型 / 思考强度 / 智能搜索，tooltip 在按钮上方 */}
         <div ref={togglesRef} className={styles.toggles}>
-          <ModelPicker />
-          <ThinkingSlider />
+          <ModelLevelPicker />
           <PermissionPicker />
           <WorkspacePicker />
           <PromptPicker onInsert={insertAtCursor} />
