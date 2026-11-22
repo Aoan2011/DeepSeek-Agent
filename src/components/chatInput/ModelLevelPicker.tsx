@@ -60,6 +60,8 @@ export const ModelLevelPicker = () => {
   const [modelOpen, setModelOpen] = useState(false)
   const [models, setModels] = useState<ModelOption[]>(() => mergeModels(readCachedModels() ?? []))
   const [loading, setLoading] = useState(false)
+  // 满档提示只出现一会儿，然后淡回正常标题（和视频一致）
+  const [hint, setHint] = useState(false)
   const fetched = useRef(false)
   // 面板只要一层磨砂：跟着输入框透出背景，但不做折射贴图
   const glassRef = useGlassAttach({ tier: 'frost', tint: 0.12 })
@@ -117,6 +119,16 @@ export const ModelLevelPicker = () => {
       setModelOpen(false)
     }
   }, [open])
+
+  useEffect(() => {
+    if (effort < EFFORT_LEVELS) {
+      setHint(false)
+      return
+    }
+    setHint(true)
+    const timer = window.setTimeout(() => setHint(false), 1600)
+    return () => window.clearTimeout(timer)
+  }, [effort])
 
   const sourceText = useMemo(() => {
     if (loading) {
@@ -235,10 +247,8 @@ export const ModelLevelPicker = () => {
                     data-glow={effort > 0 || undefined}
                     data-max={maxed || undefined}
                   >
-                    {maxed ? (
-                      <div className={styles.warning}>{t('thinkingMaxWarning')}</div>
-                    ) : (
-                      <div className={styles.cardHead}>
+                    <div className={styles.cardHead} data-hint={hint || undefined}>
+                      <div className={styles.headNormal}>
                         <span className={styles.rowLabel}>{t('modelLevelReasoning')}</span>
                         <span className={styles.levelRight}>
                           <span className={styles.levelValue}>{t(LEVEL_KEYS[effort])}</span>
@@ -247,12 +257,18 @@ export const ModelLevelPicker = () => {
                           </span>
                         </span>
                       </div>
-                    )}
+                      <span className={styles.headHint} aria-live="polite">
+                        {t('thinkingMaxWarning')}
+                      </span>
+                    </div>
 
                     <div className={styles.slider} style={style}>
                       <div className={styles.track}>
                         <span className={styles.fill} />
-                        <span className={styles.stars} />
+                        <span className={styles.stars} aria-hidden>
+                          <span className={styles.starTile} />
+                          <span className={styles.starTileAlt} />
+                        </span>
                         {STEPS.map((step) =>
                           step > effort ? (
                             <span

@@ -348,7 +348,7 @@ google-chrome --pack-extension=extension --pack-extension-key=dist-ext/agent-bri
 
 ![模型选择](docs/screenshots/model-picker.png)
 
-**思考强度**有 0-4 五档：关闭 / Low / High / Max / Ultra，全部收在同一个面板里。卡片里是一条厚胶囊滑杆，渐变色逐档偏紫——Low 是纯蓝、Ultra 是深紫，未到达的档位用小圆点标出；拖到最高档时标题行会被「更快消耗使用额度」替换，卡片边框随之亮起。档位会真实写进请求：
+**思考强度**有 0-4 五档：关闭 / Low / High / Max / Ultra，全部收在同一个面板里。卡片里是一条厚胶囊滑杆，渐变色逐档偏紫——Low 是纯蓝、Ultra 是深紫；未到达的档位用小圆点标出，高档位还会浮出向左漂移、明暗闪烁的白色光点。拖到最高档时，标题行会短暂变成「更快消耗使用额度」，约 1.5 秒后淡回「推理等级 Ultra」，卡片边框则保持亮起。档位会真实写进请求：
 
 ```json
 {
